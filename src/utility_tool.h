@@ -10,14 +10,11 @@
 
 
 #include <memory>
-#include <sstream>
 #include <string>
 #include <vector>
-#include <set>
-#include <boost/date_time.hpp>
-#include <boost/property_tree/ptree.hpp>
+#include <sstream>
+#include <chrono>
 #include <thread>
-
 
 
 
@@ -33,12 +30,12 @@ bool split(std::vector<std::string>& params, const std::string& data, const std:
 /// @brief 字符串转ptime函数
 /// @param data 输入字符串；输入字符串格式必须是yyyy-mm-dd hh:mi:ss，例如2019-06-13 10:00:00
 /// @return 转换后的ptime，若转换失败，返回无效的ptime
-boost::posix_time::ptime str_to_ptime(const std::string& data);
+std::chrono::system_clock::time_point str_to_ptime(const std::string& data);
 
 /// @brief ptime转字符串函数
 /// @param time_point 输入时间点
 /// @return 输出字符串; 字符串格式yyyy-mm-dd hh:mi:ss，例如2019-06-13 10:00:00; 若失败则返回空字符串
-std::string ptime_to_str(const boost::posix_time::ptime& time_point);
+std::string ptime_to_str(const std::chrono::system_clock::time_point& time_point);
 
 /// @brief 日志输出函数
 /// @param info 日志等级字符串
@@ -64,14 +61,5 @@ const char* get_file_name(const char* file);
 
 /// @brief 输出通知日志
 #define LOG_INFO(MSG) {CREATE_LOG_MSG(MSG);log_write("info", abc123.str());}
-
-
-/// @brief 获取全局配置
-/// @return 全局配置对象
-boost::property_tree::ptree& get_config();
-
-/// @brief 保存全局配置
-/// @param config 配置信息
-void set_config(const boost::property_tree::ptree& config);
 
 #endif // UTILITYTOOL_H

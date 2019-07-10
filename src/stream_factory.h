@@ -11,6 +11,9 @@ class stream_factory
 public:
     static std::shared_ptr<stream_factory> get_instance();
 
+    stream_factory();
+    virtual ~stream_factory();
+
     bool add_factory(const std::string& name, std::function<i_stream_ptr ()>& fun){
         {
             std::lock_guard<std::mutex> lock(m_mutex);
