@@ -12,6 +12,7 @@ class AVPacket;
 class AVFrame;
 class AVFormatContext;
 class AVStream;
+class AVCodec;
 class info_stream{
 public:
     using data_ptr = std::shared_ptr<std::array<unsigned char, STREAM_BUFFER_MAX>>;
@@ -21,8 +22,10 @@ public:
 
     AVFormatContext* p_fmt_ctx = nullptr;
     AVStream* p_stream = nullptr;
+    AVCodec* p_decoder = nullptr;
     AVPacket* p_packet = nullptr;
     AVFrame* p_frame = nullptr;
+    int index_video = -1;
 };
 using info_stream_ptr = std::shared_ptr<info_stream>;
 

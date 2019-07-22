@@ -40,27 +40,22 @@ void protocol_rtsp::handle_thread(std::string url, i_stream_ptr p_stream, std::s
         avformat_close_input(&p_fmt_ctx);
         return;
     }
-    int index_video = -1;
-	for (unsigned int i = 0; i<p_fmt_ctx->nb_streams; i++){
-		if (AVMEDIA_TYPE_VIDEO == p_fmt_ctx->streams[i]->codec->codec_type)
-		{
-			index_video = static_cast<int>(i);
-			break;
-		}
-    }
+    AVCodec* p_decoder = nullptr;
+    auto index_video = av_find_best_stream(p_fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &p_decoder, 0);
     if(0 > index_video){
         LOG_ERROR("获取视频索引失败");
         avformat_close_input(&p_fmt_ctx);
         return;
     }
-    auto p_codec_ctx = p_fmt_ctx->streams[index_video]->codec;
-	auto p_codec = avcodec_find_decoder(p_codec_ctx->codec_id);
-    if(nullptr == p_codec){
-        LOG_ERROR("获取解码器失败; 解码器id:"<<p_codec_ctx->codec_id);
-        avformat_close_input(&p_fmt_ctx);
-        return;
+    auto p_codec_ctx =  avcodec_alloc_context3(p_decoder);
+    if(nullptr == p_codec_ctx){
+
     }
-    if (0 > avcodec_open2(p_codec_ctx, p_codec, nullptr))
+    auto video = p_fmt_ctx->streams[index_video];
+     if (0 > avcodec_parameters_to_context(p_codec_ctx, video->codecpar)){
+
+     }
+    if (0 > avcodec_open2(p_codec_ctx, p_decoder, nullptr))
 	{
 		LOG_ERROR("打开解码器失败; 解码器id:"<<p_codec_ctx->codec_id);
         avformat_close_input(&p_fmt_ctx);
