@@ -515,29 +515,26 @@ void play()
     }
 
     {
-        
 
-//ret = avcodec_copy_context(enc_ctx, video->codec);
-    //ret = avcodec_parameters_copy(p_output_stream->codecpar, video->codecpar);
-    avcodec_parameters_to_context(p_dec_ctx, video->codecpar);
+        //ret = avcodec_copy_context(enc_ctx, video->codec);
+        //ret = avcodec_parameters_copy(p_output_stream->codecpar, video->codecpar);
+        avcodec_parameters_to_context(p_dec_ctx, video->codecpar);
 
-
-
-    avcodec_parameters_from_context(p_output_stream->codecpar, p_dec_ctx);
-    enc_ctx->height = p_dec_ctx->height;
+        avcodec_parameters_from_context(p_output_stream->codecpar, p_dec_ctx);
+        enc_ctx->height = p_dec_ctx->height;
         enc_ctx->width = p_dec_ctx->width;
         enc_ctx->sample_aspect_ratio = p_dec_ctx->sample_aspect_ratio;
-    enc_ctx->pix_fmt = p_dec_ctx->pix_fmt;
-    enc_ctx->time_base = p_dec_ctx->time_base;
-    enc_ctx->framerate =p_dec_ctx->framerate;
-    enc_ctx->bit_rate = p_dec_ctx->bit_rate;
+        enc_ctx->pix_fmt = p_dec_ctx->pix_fmt;
+        enc_ctx->time_base = p_dec_ctx->time_base;
+        enc_ctx->framerate = p_dec_ctx->framerate;
+        enc_ctx->bit_rate = p_dec_ctx->bit_rate;
         if ((ret = avcodec_open2(enc_ctx, encoder, nullptr)) < 0)
         {
             LOG_ERROR("打开编码器失败");
             return;
         }
 
-/* 
+        /* 
 AVCodecContext *dec_ctx = video->codec;
         enc_ctx->height = dec_ctx->height;
         enc_ctx->width = dec_ctx->width;
@@ -566,7 +563,6 @@ AVCodecContext *dec_ctx = video->codec;
             return;
         }
         */
-       
     }
 
     ret = avcodec_parameters_from_context(p_output_stream->codecpar, enc_ctx);
@@ -648,7 +644,6 @@ AVCodecContext *dec_ctx = video->codec;
             }
             av_frame_free(&frame);
 
-
             while (ret >= 0)
             {
                 ret = avcodec_receive_packet(enc_ctx, p_packet_encode);
@@ -697,12 +692,22 @@ AVCodecContext *dec_ctx = video->codec;
     avformat_network_deinit();
 }
 
+#include "test_stream.h"
+
 int main()
 {
     LOG_INFO("");
     LOG_INFO("");
     LOG_INFO("程序开始运行");
-    play();
+    //play();
+    {
+        test_stream stream;
+        stream.start();
+        //pause();
+        stream.stop();
+        pause();
+    }
+
     LOG_INFO("程序结束运行");
     return 0;
 }

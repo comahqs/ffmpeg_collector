@@ -4,14 +4,15 @@
 #include "i_stream.h"
 #include <thread>
 #include <atomic>
+#include <string>
 
 
-class protocol_rtsp : public i_stream{
+class protocol_rtsp_pull : public i_stream{
 public:
-    protocol_rtsp(const std::string& url);
+    protocol_rtsp_pull(const std::string& url);
 
-    virtual bool add_stream(std::shared_ptr<i_stream>& p_stream);
-    virtual bool do_stream(info_stream_ptr& p_info);
+    virtual bool add_stream(std::shared_ptr<i_stream> p_stream);
+    virtual bool do_stream(info_stream_ptr p_info);
     virtual bool start();
     virtual void stop();
 protected:
@@ -22,7 +23,7 @@ protected:
     std::thread m_thread;
     std::shared_ptr<std::atomic_bool> mp_bstop;
 };
-using protocol_rtsp_ptr = std::shared_ptr<protocol_rtsp>;
+typedef std::shared_ptr<protocol_rtsp_pull> protocol_rtsp_pull_ptr;
 
 
 

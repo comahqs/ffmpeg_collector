@@ -3,6 +3,7 @@
 
 
 #include <memory>
+#include<array>
 
 
 
@@ -13,9 +14,10 @@ class AVFrame;
 class AVFormatContext;
 class AVStream;
 class AVCodec;
+class AVCodecContext;
 class info_stream{
 public:
-    using data_ptr = std::shared_ptr<std::array<unsigned char, STREAM_BUFFER_MAX>>;
+    using data_ptr = std::shared_ptr<std::array<unsigned char, STREAM_BUFFER_MAX> >;
 
     data_ptr p_data;
     std::size_t len = 0;
@@ -23,6 +25,7 @@ public:
     AVFormatContext* p_fmt_ctx = nullptr;
     AVStream* p_stream = nullptr;
     AVCodec* p_decoder = nullptr;
+    AVCodecContext* p_code_cnt = nullptr;
     AVPacket* p_packet = nullptr;
     AVFrame* p_frame = nullptr;
     int index_video = -1;
@@ -31,8 +34,8 @@ using info_stream_ptr = std::shared_ptr<info_stream>;
 
 class i_stream{
 public:
-    virtual bool add_stream(std::shared_ptr<i_stream>& p_stream) = 0;
-    virtual bool do_stream(info_stream_ptr& p_info) = 0;
+    virtual bool add_stream(std::shared_ptr<i_stream> p_stream) = 0;
+    virtual bool do_stream(info_stream_ptr p_info) = 0;
     virtual bool start() = 0;
     virtual void stop() = 0;
 };

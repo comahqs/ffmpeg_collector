@@ -1,6 +1,10 @@
 #include "stream_file.h"
 #include "utility_tool.h"
+
+extern "C"
+{
 #include <libavformat/avformat.h>
+}
 
 stream_file::stream_file(const std::string &file_path) : m_file_path(file_path)
 {
@@ -30,12 +34,16 @@ void stream_file::stop()
     }
 }
 
-bool stream_file::do_stream(info_stream_ptr &p_info)
+bool stream_file::add_stream(std::shared_ptr<i_stream>)
+{
+    return false;
+}
+
+bool stream_file::do_stream(info_stream_ptr p_info)
 {
     if (nullptr == mp_fmt_ctx)
     {
         // 初始化
-        
 
         if (0 > avformat_alloc_output_context2(&mp_fmt_ctx, nullptr, nullptr, m_file_path.c_str()))
         {
@@ -50,7 +58,7 @@ bool stream_file::do_stream(info_stream_ptr &p_info)
         }
         auto *codec = avcodec_find_encoder(mp_fmt_ctx->oformat->video_codec);
         auto *codec_ctx = avcodec_alloc_context3(codec);
-if (0 > avcodec_parameters_to_context(codec_ctx, p_info->p_stream->codecpar))
+        if (0 > avcodec_parameters_to_context(codec_ctx, p_info->p_stream->codecpar))
         {
         }
 

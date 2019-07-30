@@ -2,9 +2,10 @@ cmake_minimum_required(VERSION 2.8)
 
 #在项目中显示所有源码
 file(GLOB files_current ../src/*.cpp ../src/*.h)
+file(GLOB files_test ./*.cpp ./*.h)
 
 #编译项目所需源码
-set(src_app main.cpp ../src/utility_tool.cpp)
+set(src_app main.cpp ${files_current} ${files_test})
 
 #g++编译参数
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -W -pthread -m64 -std=c++11")

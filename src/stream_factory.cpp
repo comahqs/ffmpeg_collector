@@ -1,6 +1,8 @@
 #include "stream_factory.h"
+extern "C"
+{
 #include <libavformat/avformat.h>
-
+}
 
 
 static std::mutex s_mutex;
