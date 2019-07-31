@@ -29,6 +29,8 @@ public:
     AVPacket* p_packet = nullptr;
     AVFrame* p_frame = nullptr;
     int index_video = -1;
+
+    AVCodecContext* p_o_code_cnt = nullptr;
 };
 using info_stream_ptr = std::shared_ptr<info_stream>;
 
