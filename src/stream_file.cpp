@@ -50,7 +50,7 @@ bool stream_file::do_stream(info_stream_ptr p_info)
             LOG_ERROR("打开输出流失败");
             return false;
         }
-        mp_stream = avformat_new_stream(p_info->p_fmt_ctx, nullptr);
+        mp_stream = avformat_new_stream(p_info->pi_fmt_ctx, nullptr);
         if (nullptr == mp_stream)
         {
             LOG_ERROR("新建输出流失败");
@@ -58,7 +58,7 @@ bool stream_file::do_stream(info_stream_ptr p_info)
         }
         auto *codec = avcodec_find_encoder(mp_fmt_ctx->oformat->video_codec);
         auto *codec_ctx = avcodec_alloc_context3(codec);
-        if (0 > avcodec_parameters_to_context(codec_ctx, p_info->p_stream->codecpar))
+        if (0 > avcodec_parameters_to_context(codec_ctx, p_info->pi_stream->codecpar))
         {
         }
 

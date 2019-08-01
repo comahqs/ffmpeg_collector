@@ -19,7 +19,6 @@ std::shared_ptr<stream_factory> stream_factory::get_instance(){
 }
 
 stream_factory::stream_factory(){
-    av_register_all();
     avformat_network_init();
 }
 

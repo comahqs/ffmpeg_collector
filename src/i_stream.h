@@ -9,28 +9,26 @@
 
 const static std::size_t STREAM_BUFFER_MAX = 4096;
 
+
 class AVPacket;
 class AVFrame;
 class AVFormatContext;
 class AVStream;
 class AVCodec;
 class AVCodecContext;
+
 class info_stream{
 public:
-    using data_ptr = std::shared_ptr<std::array<unsigned char, STREAM_BUFFER_MAX> >;
+    AVFormatContext* pi_fmt_ctx = nullptr;
+    AVStream* pi_stream = nullptr;
+    AVCodecContext* pi_code_ctx = nullptr;
+    
+    AVFormatContext* po_fmt_ctx = nullptr;
+    AVStream* po_stream = nullptr;
+    AVCodecContext* po_code_ctx = nullptr;
 
-    data_ptr p_data;
-    std::size_t len = 0;
-
-    AVFormatContext* p_fmt_ctx = nullptr;
-    AVStream* p_stream = nullptr;
-    AVCodec* p_decoder = nullptr;
-    AVCodecContext* p_code_cnt = nullptr;
     AVPacket* p_packet = nullptr;
-    AVFrame* p_frame = nullptr;
     int index_video = -1;
-
-    AVCodecContext* p_o_code_cnt = nullptr;
 };
 using info_stream_ptr = std::shared_ptr<info_stream>;
 

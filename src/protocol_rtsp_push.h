@@ -18,8 +18,6 @@ public:
     virtual void stop();
 protected:
     std::string m_url;
-    AVFormatContext* mp_fmt_cnt = nullptr;
-    AVStream* mp_stream = nullptr;
 };
 typedef std::shared_ptr<protocol_rtsp_push> protocol_rtsp_push_ptr;
 
