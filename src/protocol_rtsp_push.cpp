@@ -19,9 +19,17 @@ bool protocol_rtsp_push::add_stream(std::shared_ptr<i_stream>)
 bool protocol_rtsp_push::do_stream(info_stream_ptr p_info)
 {
     int ret = 0;
-    if (nullptr == p_info->po_fmt_ctx)
+    if (!(p_info->p_packet))
     {
-        if (0 > avformat_alloc_output_context2(&p_info->po_fmt_ctx, nullptr, nullptr, m_url.c_str()))
+        // 结束了
+        stop();
+        return true;
+    }
+
+    if (nullptr == mp_info)
+    {
+        mp_info = p_info;
+        if (0 > avformat_alloc_output_context2(&p_info->po_fmt_ctx, nullptr, "flv", m_url.c_str()))
         {
             LOG_ERROR("打开输出流失败");
             return false;
@@ -38,8 +46,10 @@ bool protocol_rtsp_push::do_stream(info_stream_ptr p_info)
 
         p_info->po_code_ctx->codec_id = AV_CODEC_ID_H264;
 
-        p_info->po_code_ctx->width = p_info->pi_code_ctx->width;   //你想要的宽度
-        p_info->po_code_ctx->height = p_info->pi_code_ctx->height; //你想要的高度
+        //p_info->po_code_ctx->width = p_info->pi_code_ctx->width;   //你想要的宽度
+        //p_info->po_code_ctx->height = p_info->pi_code_ctx->height; //你想要的高度
+        p_info->po_code_ctx->width = 480;   //你想要的宽度
+        p_info->po_code_ctx->height = 320; //你想要的高度
         p_info->po_code_ctx->sample_aspect_ratio = p_info->pi_code_ctx->sample_aspect_ratio;
         if (nullptr != codec->pix_fmts)
         {
@@ -97,14 +107,15 @@ bool protocol_rtsp_push::do_stream(info_stream_ptr p_info)
                 {
                     return false;
                 }
-                
             }
-            if(AV_NOPTS_VALUE == p_frame->pts){
-                // 
+            if (AV_NOPTS_VALUE == p_frame->pts)
+            {
+                //
                 p_frame->pts = p_frame->best_effort_timestamp;
             }
             ret = avcodec_send_frame(p_info->po_code_ctx, p_frame);
-            if(0 > ret){
+            if (0 > ret)
+            {
                 if (AVERROR_EOF == ret)
                 {
                     avcodec_flush_buffers(p_info->pi_code_ctx);
@@ -118,10 +129,11 @@ bool protocol_rtsp_push::do_stream(info_stream_ptr p_info)
                 }
             }
             ret = avcodec_receive_packet(p_info->po_code_ctx, &o_packet);
-            if(0 > ret){
+            if (0 > ret)
+            {
                 return false;
             }
-            o_packet.stream_index = p_info->index_video;
+            //o_packet.stream_index = p_info->index_video;
             av_packet_rescale_ts(&o_packet, p_info->po_code_ctx->time_base, p_info->po_stream->time_base);
             ret = av_interleaved_write_frame(p_info->po_fmt_ctx, &o_packet);
             av_packet_unref(&o_packet);
@@ -135,12 +147,14 @@ bool protocol_rtsp_push::start()
 }
 void protocol_rtsp_push::stop()
 {
-    /*
-    if (nullptr != mp_fmt_cnt)
+    if (mp_info)
     {
-        auto ret = av_write_trailer(mp_fmt_cnt);
-        avformat_free_context(mp_fmt_cnt);
-        mp_fmt_cnt = nullptr;
+        if (mp_info->po_fmt_ctx)
+        {
+            auto ret = av_write_trailer(mp_info->po_fmt_ctx);
+            avformat_free_context(mp_info->po_fmt_ctx);
+            mp_info->po_fmt_ctx = nullptr;
+        }
+        mp_info.reset();
     }
-    */
 }

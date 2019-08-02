@@ -6,8 +6,8 @@
 #include <atomic>
 #include <string>
 
-class AVFormatContext;
-class AVStream;
+
+
 class protocol_rtsp_push : public i_stream{
 public:
     protocol_rtsp_push(const std::string& url);
@@ -18,6 +18,7 @@ public:
     virtual void stop();
 protected:
     std::string m_url;
+    info_stream_ptr mp_info;
 };
 typedef std::shared_ptr<protocol_rtsp_push> protocol_rtsp_push_ptr;
 
