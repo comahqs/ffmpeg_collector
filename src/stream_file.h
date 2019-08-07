@@ -9,7 +9,7 @@ public:
     stream_file(const std::string& file_path);
 
     virtual bool add_stream(std::shared_ptr<i_stream> p_stream);
-    virtual bool do_stream(info_stream_ptr p_info);
+    virtual bool do_stream(info_av_ptr p_info);
     virtual bool start();
     virtual void stop();
 protected:

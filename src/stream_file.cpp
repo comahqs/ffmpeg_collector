@@ -39,8 +39,9 @@ bool stream_file::add_stream(std::shared_ptr<i_stream>)
     return false;
 }
 
-bool stream_file::do_stream(info_stream_ptr p_info)
+bool stream_file::do_stream(info_av_ptr p_info)
 {
+    /* 
     if (nullptr == mp_fmt_ctx)
     {
         // 初始化
@@ -77,5 +78,6 @@ bool stream_file::do_stream(info_stream_ptr p_info)
     {
         av_interleaved_write_frame(mp_fmt_ctx, p_info->p_packet);
     }
+    */
     return true;
 }

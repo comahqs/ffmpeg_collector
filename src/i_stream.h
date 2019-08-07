@@ -3,7 +3,7 @@
 
 
 #include <memory>
-#include<array>
+#include <vector>
 
 
 
@@ -19,23 +19,29 @@ class AVCodecContext;
 
 class info_stream{
 public:
-    AVFormatContext* pi_fmt_ctx = nullptr;
     AVStream* pi_stream = nullptr;
     AVCodecContext* pi_code_ctx = nullptr;
-    
-    AVFormatContext* po_fmt_ctx = nullptr;
     AVStream* po_stream = nullptr;
     AVCodecContext* po_code_ctx = nullptr;
-
     AVPacket* p_packet = nullptr;
-    int index_video = -1;
+    int index_stream = -1;
 };
 using info_stream_ptr = std::shared_ptr<info_stream>;
+
+class info_av{
+public:
+    AVFormatContext* pi_fmt_ctx = nullptr;
+    AVFormatContext* po_fmt_ctx = nullptr;
+
+    std::vector<info_stream_ptr> streams;
+    AVPacket* p_packet = nullptr;
+};
+using info_av_ptr = std::shared_ptr<info_av>;
 
 class i_stream{
 public:
     virtual bool add_stream(std::shared_ptr<i_stream> p_stream) = 0;
-    virtual bool do_stream(info_stream_ptr p_info) = 0;
+    virtual bool do_stream(info_av_ptr p_info) = 0;
     virtual bool start() = 0;
     virtual void stop() = 0;
 };
