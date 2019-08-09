@@ -24,7 +24,7 @@ public:
     AVStream* po_stream = nullptr;
     AVCodecContext* po_code_ctx = nullptr;
     AVPacket* p_packet = nullptr;
-    int index_stream = -1;
+    int o_stream_index = -1;
 };
 using info_stream_ptr = std::shared_ptr<info_stream>;
 
