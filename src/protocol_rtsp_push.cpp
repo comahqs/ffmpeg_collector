@@ -29,7 +29,7 @@ bool protocol_rtsp_push::do_stream(info_av_ptr p_info)
     if (nullptr == mp_info)
     {
         mp_info = p_info;
-        if (0 > avformat_alloc_output_context2(&p_info->po_fmt_ctx, nullptr, "mp4", m_url.c_str()))
+        if (0 > avformat_alloc_output_context2(&p_info->po_fmt_ctx, nullptr, "flv", m_url.c_str()))
         {
             LOG_ERROR("打开输出流失败");
             return false;
