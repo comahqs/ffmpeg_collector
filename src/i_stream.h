@@ -23,7 +23,6 @@ public:
     AVCodecContext* pi_code_ctx = nullptr;
     AVStream* po_stream = nullptr;
     AVCodecContext* po_code_ctx = nullptr;
-    AVPacket* p_packet = nullptr;
     int o_stream_index = -1;
 };
 using info_stream_ptr = std::shared_ptr<info_stream>;
@@ -35,15 +34,19 @@ public:
 
     std::vector<info_stream_ptr> streams;
     AVPacket* p_packet = nullptr;
+    AVFrame *p_frame = nullptr;
+    info_stream_ptr p_stream = nullptr;
 };
 using info_av_ptr = std::shared_ptr<info_av>;
 
 class i_stream{
 public:
     virtual bool add_stream(std::shared_ptr<i_stream> p_stream) = 0;
+    virtual bool before_stream(info_av_ptr p_info) {return true;};
     virtual bool do_stream(info_av_ptr p_info) = 0;
-    virtual bool start() = 0;
-    virtual void stop() = 0;
+    virtual bool after_stream(info_av_ptr p_info) {return true;};
+    virtual bool start() {return true;};
+    virtual void stop() {};
 };
 using i_stream_ptr = std::shared_ptr<i_stream>;
 

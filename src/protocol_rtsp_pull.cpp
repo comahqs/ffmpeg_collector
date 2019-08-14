@@ -46,48 +46,10 @@ void protocol_rtsp_pull::handle_thread(std::string url, i_stream_ptr p_stream, s
         LOG_ERROR("打开url失败:" << url);
         return;
     }
-    if (0 > avformat_find_stream_info(p_info->pi_fmt_ctx, nullptr))
-    {
-        LOG_ERROR("获取流信息失败");
-        avformat_close_input(&p_info->pi_fmt_ctx);
+    if(!p_stream->before_stream(p_info)){
         return;
     }
-    p_info->streams.resize(p_info->pi_fmt_ctx->nb_streams);
-    {
-        AVCodec *pi_code = nullptr;
-        auto p_info_stream = std::make_shared<info_stream>();
-        auto index_stream = av_find_best_stream(p_info->pi_fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &(pi_code), 0);
-        if (0 > index_stream)
-        {
-            LOG_ERROR("获取视频索引失败:"<<index_stream);
-            avformat_close_input(&p_info->pi_fmt_ctx);
-            return;
-        }
-        p_info_stream->pi_stream = p_info->pi_fmt_ctx->streams[index_stream];
-        p_info_stream->pi_code_ctx = avcodec_alloc_context3(pi_code);
-        avcodec_parameters_to_context(p_info_stream->pi_code_ctx, p_info_stream->pi_stream->codecpar);
-        p_info_stream->pi_code_ctx->framerate = av_guess_frame_rate(p_info->pi_fmt_ctx, p_info_stream->pi_stream, nullptr);
-        auto ret = avcodec_open2(p_info_stream->pi_code_ctx, pi_code, nullptr);
-        p_info->streams[index_stream] = p_info_stream;
-    }
-    p_info->streams.resize(p_info->pi_fmt_ctx->nb_streams);
-    {
-        AVCodec *pi_code = nullptr;
-        auto p_info_stream = std::make_shared<info_stream>();
-        auto index_stream = av_find_best_stream(p_info->pi_fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, &(pi_code), 0);
-        if (0 > index_stream)
-        {
-            LOG_ERROR("获取音频索引失败:"<<index_stream);
-            avformat_close_input(&p_info->pi_fmt_ctx);
-            return;
-        }
-        p_info_stream->pi_stream = p_info->pi_fmt_ctx->streams[index_stream];
-        p_info_stream->pi_code_ctx = avcodec_alloc_context3(pi_code);
-        avcodec_parameters_to_context(p_info_stream->pi_code_ctx, p_info_stream->pi_stream->codecpar);
-        p_info_stream->pi_code_ctx->framerate = av_guess_frame_rate(p_info->pi_fmt_ctx, p_info_stream->pi_stream, nullptr);
-        auto ret = avcodec_open2(p_info_stream->pi_code_ctx, pi_code, nullptr);
-        p_info->streams[index_stream] = p_info_stream;
-    }
+    p_info->p_frame = av_frame_alloc();
 
     printf("---------------- 输入文件信息 ---------------\n");
     av_dump_format(p_info->pi_fmt_ctx, 0, url.c_str(), 0);
@@ -109,19 +71,10 @@ void protocol_rtsp_pull::handle_thread(std::string url, i_stream_ptr p_stream, s
             }
             break;
         }
-        if (0 <= p_info->p_packet->stream_index || static_cast<int>(p_info->streams.size()) > p_info->p_packet->stream_index)
-        {
-            auto p_info_stream = p_info->streams[p_info->p_packet->stream_index];
-            if(nullptr != p_info_stream){
-                p_stream->do_stream(p_info);
-            }
-        }
-        else
-        {
-        }
-
         av_packet_unref(p_info->p_packet);
     }
+
+    p_stream->after_stream(p_info);
 
     avformat_close_input(&p_info->pi_fmt_ctx);
     LOG_INFO("结束处理视频流:" << url);
