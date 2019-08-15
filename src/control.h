@@ -11,6 +11,8 @@ public:
     control(const std::string& url_input, const std::string& url_output);
     virtual bool start();
     virtual void stop();
+
+    virtual void wait();
 protected:
     static void handle_thread(const std::string& url_input, const std::string& url_output, std::shared_ptr<std::atomic_bool> flag_stop);
 

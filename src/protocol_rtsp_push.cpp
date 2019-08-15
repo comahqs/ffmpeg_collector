@@ -28,16 +28,24 @@ int protocol_rtsp_push::before_stream(info_av_ptr p_info)
         ret = avio_open(&(p_info->po_fmt_ctx->pb), m_url.c_str(), AVIO_FLAG_WRITE);
         if (ret < 0)
         {
-            return false;
+            return ES_UNKNOW;
         }
     }
-    ret = avformat_write_header(p_info->po_fmt_ctx, nullptr);
     return stream_base::before_stream(p_info);
 }
 
 int protocol_rtsp_push::do_stream(info_av_ptr p_info)
 {
     int ret = 0;
+    if(!m_flag_header){
+        m_flag_header = true;
+        ret = avformat_write_header(p_info->po_fmt_ctx, nullptr);
+
+        printf("---------------- 输出文件信息 ---------------\n");
+        av_dump_format(p_info->po_fmt_ctx, 0, m_url.c_str(), 1);
+        printf("-------------------------------------------------\n");
+    }
+    
     if (!(p_info->p_packet))
     {
         // 结束了

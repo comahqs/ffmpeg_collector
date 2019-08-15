@@ -8,7 +8,6 @@ class stream_package_encode : public stream_base
 public:
     virtual int before_stream(info_av_ptr p_info);
     virtual int do_stream(info_av_ptr p_info);
-    virtual int after_stream(info_av_ptr p_info);
 
 protected:
     virtual int encode_video(info_av_ptr p_info);

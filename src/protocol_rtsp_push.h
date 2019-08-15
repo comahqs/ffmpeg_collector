@@ -17,6 +17,7 @@ public:
     virtual int after_stream(info_av_ptr p_info);
 protected:
     std::string m_url;
+    bool m_flag_header = false;
 };
 typedef std::shared_ptr<protocol_rtsp_push> protocol_rtsp_push_ptr;
 

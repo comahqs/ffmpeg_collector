@@ -10,6 +10,10 @@ extern "C"
 
 int stream_package_encode::before_stream(info_av_ptr p_info)
 {
+    auto ret = stream_base::before_stream(p_info);
+    if(ES_SUCCESS != ret){
+        return ret;
+    }
     if (nullptr == p_info->po_packet)
     {
         p_info->po_packet = (AVPacket *)av_malloc(sizeof(AVPacket));
@@ -47,6 +51,7 @@ int stream_package_encode::before_stream(info_av_ptr p_info)
             p_info_stream->po_code_ctx->time_base = p_info_stream->pi_code_ctx->time_base;
             p_info_stream->po_code_ctx->framerate = p_info_stream->pi_code_ctx->framerate;
             p_info_stream->po_code_ctx->bit_rate = p_info_stream->pi_code_ctx->bit_rate;
+		
 
             avcodec_open2(p_info_stream->po_code_ctx, codec, nullptr);
             //将AVCodecContext的成员复制到AVCodecParameters结构体。前后两行不能调换顺序
@@ -79,7 +84,7 @@ int stream_package_encode::before_stream(info_av_ptr p_info)
             avcodec_parameters_from_context(p_info_stream->po_stream->codecpar, p_info_stream->po_code_ctx);
         }
     }
-    return stream_base::before_stream(p_info);
+    return ES_SUCCESS;
 }
 
 int stream_package_encode::do_stream(info_av_ptr p_info)
@@ -100,22 +105,7 @@ int stream_package_encode::do_stream(info_av_ptr p_info)
     if(ES_SUCCESS != ret){
         return ret;
     }
-    
-    ret =  stream_base::do_stream(p_info);
-    if (nullptr != p_info->po_packet)
-    {
-        av_packet_unref(p_info->po_packet);
-    }
     return ret;
-}
-
-int stream_package_encode::after_stream(info_av_ptr p_info)
-{
-    if (nullptr != p_info->po_packet)
-    {
-        av_packet_unref(p_info->po_packet);
-    }
-    return ES_UNKNOW;
 }
 
 int stream_package_encode::encode_video(info_av_ptr p_info)
@@ -137,18 +127,24 @@ int stream_package_encode::encode_video(info_av_ptr p_info)
             return ES_UNKNOW;
         }
     }
-    
-    ret = avcodec_receive_packet(p_info->p_stream->po_code_ctx, p_info->po_packet);
+    AVPacket packet;
+    av_init_packet(&packet);
+    ret = avcodec_receive_packet(p_info->p_stream->po_code_ctx, &packet);
     if (0 > ret)
     {
         return ES_UNKNOW;
     }
-    p_info->po_packet->stream_index = p_info->p_stream->po_stream->index;
-    av_packet_rescale_ts(p_info->po_packet, p_info->p_stream->po_code_ctx->time_base, p_info->p_stream->po_stream->time_base);
-    return ES_SUCCESS;
+    packet.stream_index = p_info->p_stream->po_stream->index;
+    av_packet_rescale_ts(&packet, p_info->p_stream->po_code_ctx->time_base, p_info->p_stream->po_stream->time_base);
+
+    auto p_packet_old = p_info->p_packet;
+    p_info->p_packet = &packet;
+    ret =  stream_base::do_stream(p_info);
+    p_info->p_packet = p_packet_old;
+    return ret;
 }
 
 int stream_package_encode::encode_audio(info_av_ptr p_info)
 {
-    return ES_SUCCESS;
+    return stream_base::do_stream(p_info);
 }

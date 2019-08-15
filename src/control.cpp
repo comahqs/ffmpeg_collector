@@ -21,7 +21,11 @@ void control::stop()
     m_thread.join();
 }
 
-void control::handle_thread(const std::string& url_input, const std::string& url_output, std::shared_ptr<std::atomic_bool> flag_stop)
+void control::wait(){
+    m_thread.join();
+}
+
+void control::handle_thread(const std::string& url_input, const std::string& url_output, std::shared_ptr<std::atomic_bool> pflag_stop)
 {
     auto p_protocol_push = std::make_shared<protocol_rtsp_push>(url_output);
     auto p_encode = std::make_shared<stream_package_encode>();
@@ -38,7 +42,7 @@ void control::handle_thread(const std::string& url_input, const std::string& url
     {
         return;
     }
-    while (!flag_stop)
+    while (!(*pflag_stop))
     {
         ret = p_stream->do_stream(p_info);
         if (ES_SUCCESS == ret)

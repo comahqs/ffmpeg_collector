@@ -51,9 +51,9 @@ using info_av_ptr = std::shared_ptr<info_av>;
 class stream_base{
 public:
     virtual bool add_stream( std::shared_ptr<stream_base> p_stream){mp_stream = p_stream;};
-    virtual int before_stream(info_av_ptr p_info) {return nullptr != mp_stream ? mp_stream->before_stream(p_info) : ES_UNKNOW;};
-    virtual int do_stream(info_av_ptr p_info) {return nullptr != mp_stream ? mp_stream->do_stream(p_info) : ES_UNKNOW;};
-    virtual int after_stream(info_av_ptr p_info) {return nullptr != mp_stream ? mp_stream->after_stream(p_info) : ES_UNKNOW;};
+    virtual int before_stream(info_av_ptr p_info) {if(nullptr != mp_stream){return mp_stream->before_stream(p_info);}else{return ES_SUCCESS;}};
+    virtual int do_stream(info_av_ptr p_info) {if(nullptr != mp_stream){return mp_stream->do_stream(p_info);}else{return ES_SUCCESS;}};
+    virtual int after_stream(info_av_ptr p_info) {if(nullptr != mp_stream){return mp_stream->after_stream(p_info);}else{return ES_SUCCESS;}};
 
 protected:
      std::shared_ptr<stream_base>mp_stream;

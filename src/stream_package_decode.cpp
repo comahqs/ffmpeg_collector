@@ -10,8 +10,7 @@ extern "C"
 
 int stream_package_decode::before_stream(info_av_ptr p_info)
 {
-    int ret = ES_SUCCESS;
-    ret = avformat_find_stream_info(p_info->pi_fmt_ctx, nullptr);
+    auto ret = avformat_find_stream_info(p_info->pi_fmt_ctx, nullptr);
     if (0 > ret)
     {
         LOG_ERROR("获取流信息失败; 错误代码:" << ret);
@@ -90,7 +89,7 @@ int stream_package_decode::do_stream(info_av_ptr p_info)
         return ret;
     }
 
-    return stream_base::do_stream(p_info);
+    return ret;
 }
 
 int stream_package_decode::decode_video(info_av_ptr p_info)
@@ -141,6 +140,8 @@ int stream_package_decode::decode_video(info_av_ptr p_info)
             //{
             //    p_info->p_frame->pts = p_info->p_frame->best_effort_timestamp;
             //}
+
+            ret = stream_base::do_stream(p_info);
         }
     }
     return ES_SUCCESS;
@@ -148,5 +149,5 @@ int stream_package_decode::decode_video(info_av_ptr p_info)
 
 int stream_package_decode::decode_audio(info_av_ptr p_info)
 {
-    return ES_SUCCESS;
+    return stream_base::do_stream(p_info);
 }
