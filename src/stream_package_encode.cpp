@@ -56,8 +56,8 @@ int stream_package_encode::before_stream(info_av_ptr p_info)
             avcodec_open2(p_info_stream->po_code_ctx, codec, nullptr);
             //将AVCodecContext的成员复制到AVCodecParameters结构体。前后两行不能调换顺序
             avcodec_parameters_from_context(p_info_stream->po_stream->codecpar, p_info_stream->po_code_ctx);
-            //p_info_stream->po_stream->avg_frame_rate = p_info_stream->pstream_base->avg_frame_rate;
-            //p_info_stream->po_stream->r_frame_rate = p_info_stream->pstream_base->r_frame_rate;
+            p_info_stream->po_stream->avg_frame_rate = p_info_stream->pstream_base->avg_frame_rate;
+            p_info_stream->po_stream->r_frame_rate = p_info_stream->pstream_base->r_frame_rate;
         }
         else if (AVMEDIA_TYPE_AUDIO == p_info_stream->pi_code_ctx->codec_type)
         {
