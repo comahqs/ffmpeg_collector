@@ -8,18 +8,14 @@ extern "C"
 #include <libavutil/imgutils.h>
 }
 
-bool stream_package_decode::add_stream(std::shared_ptr<i_stream> p_stream)
+int stream_package_decode::before_stream(info_av_ptr p_info)
 {
-    mp_stream = p_stream;
-    return true;
-}
-
-bool stream_package_decode::before_stream(info_av_ptr p_info)
-{
-    if (0 > avformat_find_stream_info(p_info->pi_fmt_ctx, nullptr))
+    int ret = 0;
+    ret = avformat_find_stream_info(p_info->pi_fmt_ctx, nullptr);
+    if (0 > ret)
     {
-        LOG_ERROR("获取流信息失败");
-        return false;
+        LOG_ERROR("获取流信息失败; 错误代码:" << ret);
+        return ES_UNKNOW;
     }
     p_info->streams.resize(p_info->pi_fmt_ctx->nb_streams);
     {
@@ -29,12 +25,12 @@ bool stream_package_decode::before_stream(info_av_ptr p_info)
         if (0 > index_stream)
         {
             LOG_ERROR("获取视频索引失败:" << index_stream);
-            return false;
+            return ES_UNKNOW;
         }
-        p_info_stream->pi_stream = p_info->pi_fmt_ctx->streams[index_stream];
+        p_info_stream->pstream_base = p_info->pi_fmt_ctx->streams[index_stream];
         p_info_stream->pi_code_ctx = avcodec_alloc_context3(pi_code);
-        avcodec_parameters_to_context(p_info_stream->pi_code_ctx, p_info_stream->pi_stream->codecpar);
-        p_info_stream->pi_code_ctx->framerate = av_guess_frame_rate(p_info->pi_fmt_ctx, p_info_stream->pi_stream, nullptr);
+        avcodec_parameters_to_context(p_info_stream->pi_code_ctx, p_info_stream->pstream_base->codecpar);
+        p_info_stream->pi_code_ctx->framerate = av_guess_frame_rate(p_info->pi_fmt_ctx, p_info_stream->pstream_base, nullptr);
         auto ret = avcodec_open2(p_info_stream->pi_code_ctx, pi_code, nullptr);
         p_info->streams[index_stream] = p_info_stream;
     }
@@ -45,23 +41,19 @@ bool stream_package_decode::before_stream(info_av_ptr p_info)
         if (0 > index_stream)
         {
             LOG_ERROR("获取音频索引失败:" << index_stream);
-            return false;
+            return ES_UNKNOW;
         }
-        p_info_stream->pi_stream = p_info->pi_fmt_ctx->streams[index_stream];
+        p_info_stream->pstream_base = p_info->pi_fmt_ctx->streams[index_stream];
         p_info_stream->pi_code_ctx = avcodec_alloc_context3(pi_code);
-        avcodec_parameters_to_context(p_info_stream->pi_code_ctx, p_info_stream->pi_stream->codecpar);
-        p_info_stream->pi_code_ctx->framerate = av_guess_frame_rate(p_info->pi_fmt_ctx, p_info_stream->pi_stream, nullptr);
+        avcodec_parameters_to_context(p_info_stream->pi_code_ctx, p_info_stream->pstream_base->codecpar);
+        p_info_stream->pi_code_ctx->framerate = av_guess_frame_rate(p_info->pi_fmt_ctx, p_info_stream->pstream_base, nullptr);
         auto ret = avcodec_open2(p_info_stream->pi_code_ctx, pi_code, nullptr);
         p_info->streams[index_stream] = p_info_stream;
     }
-    if (nullptr == mp_stream || !mp_stream->before_stream(p_info))
-    {
-        return false;
-    }
-    return true;
+    return ES_SUCCESS;
 }
 
-bool stream_package_decode::do_stream(info_av_ptr p_info)
+int stream_package_decode::step(info_av_ptr p_info)
 {
     if (0 <= p_info->p_packet->stream_index || static_cast<int>(p_info->streams.size()) > p_info->p_packet->stream_index)
     {
@@ -71,54 +63,82 @@ bool stream_package_decode::do_stream(info_av_ptr p_info)
 
             if (AVMEDIA_TYPE_VIDEO == p_info->p_stream->pi_code_ctx->codec_type)
             {
-                int ret = 0;
-                while (true)
-                {
-                    if (p_info->p_packet->data != nullptr) // not a flush packet
-                    {
-                        av_packet_rescale_ts(p_info->p_packet, p_info->p_stream->pi_stream->time_base, p_info->p_stream->pi_code_ctx->time_base);
-                    }
-                    ret = avcodec_send_packet(p_info->p_stream->pi_code_ctx, p_info->p_packet);
-                    while (true)
-                    {
-                        ret = avcodec_receive_frame(p_info->p_stream->pi_code_ctx, p_info->p_frame);
-                        if (0 > ret)
-                        {
-                            if (AVERROR_EOF == ret)
-                            {
-                                avcodec_flush_buffers(p_info->p_stream->pi_code_ctx);
-                                return true;
-                            }
-                            else if (AVERROR(EAGAIN) == ret)
-                            {
-                                return true;
-                            }
-                            else
-                            {
-                                return false;
-                            }
-                        }
-                        if (AV_NOPTS_VALUE == p_info->p_frame->pts)
-                        {
-                            p_info->p_frame->pts = p_info->p_frame->best_effort_timestamp;
-                        }
-                        mp_stream->do_stream(p_info);
-                    }
-                }
+                return decode_video(p_info);
             }
             else if (AVMEDIA_TYPE_AUDIO == p_info->p_stream->pi_code_ctx->codec_type)
             {
-                mp_stream->do_stream(p_info);
+                return decode_audio(p_info);
             }
             else
             {
+                return ES_UNKNOW;
             }
         }
+        else
+        {
+            LOG_ERROR("丢弃无法处理的索引数据帧:" << p_info->p_packet->stream_index);
+        }
     }
-    return true;
+    else
+    {
+        LOG_ERROR("索引超过范围:" << p_info->p_packet->stream_index << "; 实际最大索引:" << p_info->streams.size());
+    }
+    return ES_SUCCESS;
 }
 
-bool stream_package_decode::after_stream(info_av_ptr p_info)
+int stream_package_decode::after_stream(info_av_ptr p_info)
 {
-    return true;
+    return ES_SUCCESS;
+}
+
+int stream_package_decode::decode_video(info_av_ptr p_info)
+{
+    int ret = 0;
+    while (true)
+    {
+        if (p_info->p_packet->data != nullptr) // not a flush packet
+        {
+            av_packet_rescale_ts(p_info->p_packet, p_info->p_stream->pstream_base->time_base, p_info->p_stream->pi_code_ctx->time_base);
+        }
+        ret = avcodec_send_packet(p_info->p_stream->pi_code_ctx, p_info->p_packet);
+        if(0 == ret){
+
+        }else if(AVERROR(EAGAIN) == ret){
+            return ES_AGAIN;
+        }else if(AVERROR_EOF == ret){
+            return ES_EOF;
+        }else{
+            return ES_UNKNOW;
+        }
+        while (true)
+        {
+            ret = avcodec_receive_frame(p_info->p_stream->pi_code_ctx, p_info->p_frame);
+            if (0 != ret)
+            {
+                if (AVERROR_EOF == ret)
+                {
+                    avcodec_flush_buffers(p_info->p_stream->pi_code_ctx);
+                    return ES_EOF;
+                }
+                else if (AVERROR(EAGAIN) == ret)
+                {
+                    return ES_AGAIN;
+                }
+                else
+                {
+                    return ES_UNKNOW;
+                }
+            }
+            //if (AV_NOPTS_VALUE == p_info->p_frame->pts)
+            //{
+            //    p_info->p_frame->pts = p_info->p_frame->best_effort_timestamp;
+            //}
+        }
+    }
+    return ES_SUCCESS;
+}
+
+int stream_package_decode::decode_audio(info_av_ptr p_info)
+{
+    return ES_SUCCESS;
 }

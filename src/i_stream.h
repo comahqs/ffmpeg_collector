@@ -1,11 +1,16 @@
-#ifndef I_STREAM_H
-#define I_STREAM_H
+#ifndef stream_base_H
+#define stream_base_H
 
 
 #include <memory>
 #include <vector>
 
 
+const static int ES_SUCCESS = 0;
+const static int ES_AGAIN = 1;
+const static int ES_EOF = 2;
+
+const static int ES_UNKNOW = -1;
 
 const static std::size_t STREAM_BUFFER_MAX = 4096;
 
@@ -19,7 +24,7 @@ class AVCodecContext;
 
 class info_stream{
 public:
-    AVStream* pi_stream = nullptr;
+    AVStream* pstream_base = nullptr;
     AVCodecContext* pi_code_ctx = nullptr;
     AVStream* po_stream = nullptr;
     AVCodecContext* po_code_ctx = nullptr;
@@ -36,19 +41,28 @@ public:
     AVPacket* p_packet = nullptr;
     AVFrame *p_frame = nullptr;
     info_stream_ptr p_stream = nullptr;
+
+    AVPacket* po_packet = nullptr;
 };
 using info_av_ptr = std::shared_ptr<info_av>;
 
-class i_stream{
+
+class stream_base{
 public:
-    virtual bool add_stream(std::shared_ptr<i_stream> p_stream) = 0;
-    virtual bool before_stream(info_av_ptr p_info) {return true;};
-    virtual bool do_stream(info_av_ptr p_info) = 0;
-    virtual bool after_stream(info_av_ptr p_info) {return true;};
-    virtual bool start() {return true;};
-    virtual void stop() {};
+    virtual int before_stream(info_av_ptr p_info) {return ES_SUCCESS;};
+    virtual int before_step(info_av_ptr p_info) {return ES_SUCCESS;};
+    virtual int step(info_av_ptr p_info) {return ES_SUCCESS;};
+    virtual int after_step(info_av_ptr p_info) {return ES_SUCCESS;};
+    virtual int after_stream(info_av_ptr p_info) {return ES_SUCCESS;};
 };
-using i_stream_ptr = std::shared_ptr<i_stream>;
+using stream_base_ptr = std::shared_ptr<stream_base>;
+
+class i_plugin{
+public:
+     virtual bool start() = 0;
+     virtual void stop() = 0;   
+};
+using i_plugin_ptr = std::shared_ptr<i_plugin>;
 
 
 class proxy_base{
@@ -73,4 +87,4 @@ public:
 
 
 
-#endif // I_STREAM_H
+#endif // stream_base_H

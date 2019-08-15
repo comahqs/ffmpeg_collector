@@ -8,16 +8,13 @@ extern "C"
 #include <libavutil/imgutils.h>
 }
 
-bool stream_package_encode::add_stream(std::shared_ptr<i_stream> p_stream)
+int stream_package_encode::before_stream(info_av_ptr p_info)
 {
-    mp_stream = p_stream;
-    return true;
-}
-
-bool stream_package_encode::before_stream(info_av_ptr p_info)
-{
-    mp_stream->before_stream(p_info);
-
+    if (nullptr == p_info->po_packet)
+    {
+        p_info->po_packet = (AVPacket *)av_malloc(sizeof(AVPacket));
+        av_init_packet(p_info->po_packet);
+    }
     for (auto &p_info_stream : p_info->streams)
     {
         if (AVMEDIA_TYPE_VIDEO == p_info_stream->pi_code_ctx->codec_type)
@@ -26,7 +23,7 @@ bool stream_package_encode::before_stream(info_av_ptr p_info)
             if (nullptr == p_info_stream->po_stream)
             {
                 LOG_ERROR("新建输出流失败");
-                return false;
+                return ES_UNKNOW;
             }
 
             AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_H264);
@@ -54,8 +51,8 @@ bool stream_package_encode::before_stream(info_av_ptr p_info)
             avcodec_open2(p_info_stream->po_code_ctx, codec, nullptr);
             //将AVCodecContext的成员复制到AVCodecParameters结构体。前后两行不能调换顺序
             avcodec_parameters_from_context(p_info_stream->po_stream->codecpar, p_info_stream->po_code_ctx);
-            //p_info_stream->po_stream->avg_frame_rate = p_info_stream->pi_stream->avg_frame_rate;
-            //p_info_stream->po_stream->r_frame_rate = p_info_stream->pi_stream->r_frame_rate;
+            //p_info_stream->po_stream->avg_frame_rate = p_info_stream->pstream_base->avg_frame_rate;
+            //p_info_stream->po_stream->r_frame_rate = p_info_stream->pstream_base->r_frame_rate;
         }
         else if (AVMEDIA_TYPE_AUDIO == p_info_stream->pi_code_ctx->codec_type)
         {
@@ -63,7 +60,7 @@ bool stream_package_encode::before_stream(info_av_ptr p_info)
             if (nullptr == p_info_stream->po_stream)
             {
                 LOG_ERROR("新建输出流失败");
-                return false;
+                return ES_UNKNOW;
             }
 
             AVCodec *codec = avcodec_find_encoder(p_info_stream->pi_code_ctx->codec_id);
@@ -82,52 +79,78 @@ bool stream_package_encode::before_stream(info_av_ptr p_info)
             avcodec_parameters_from_context(p_info_stream->po_stream->codecpar, p_info_stream->po_code_ctx);
         }
     }
-    return true;
+    return ES_SUCCESS;
 }
 
-bool stream_package_encode::do_stream(info_av_ptr p_info)
+int stream_package_encode::step(info_av_ptr p_info)
 {
     if (AVMEDIA_TYPE_VIDEO == p_info->p_stream->pi_code_ctx->codec_type)
     {
-        auto ret = avcodec_send_frame(p_info->p_stream->po_code_ctx, p_info->p_frame);
-        if (0 > ret)
-        {
-            if (AVERROR_EOF == ret)
-            {
-                avcodec_flush_buffers(p_info->p_stream->pi_code_ctx);
-            }
-            else if (AVERROR(EAGAIN) == ret)
-            {
-            }
-            else
-            {
-                return false;
-            }
-        }
-        AVPacket o_packet;
-        av_init_packet(&o_packet);
-        ret = avcodec_receive_packet(p_info->p_stream->po_code_ctx, &o_packet);
-        if (0 > ret)
-        {
-            return false;
-        }
-        o_packet.stream_index = p_info->p_stream->po_stream->index;
-        av_packet_rescale_ts(&o_packet, p_info->p_stream->po_code_ctx->time_base, p_info->p_stream->po_stream->time_base);
-
-        auto pi_package = p_info->p_packet;
-        p_info->p_packet = &o_packet;
-        mp_stream->do_stream(p_info);
-        p_info->p_packet = pi_package;
-        av_packet_unref(&o_packet);
+        return encode_video(p_info);
     }
     else if (AVMEDIA_TYPE_AUDIO == p_info->p_stream->pi_code_ctx->codec_type)
     {
-        mp_stream->do_stream(p_info);
+        return encode_audio(p_info);
     }
-    return true;
+    else
+    {
+        return ES_UNKNOW;
+    }
+    return ES_SUCCESS;
 }
 
-bool stream_package_encode::after_stream(info_av_ptr p_info)
+int stream_package_encode::after_stream(info_av_ptr p_info)
 {
-    return true;
+    if (nullptr != p_info->po_packet)
+    {
+        av_packet_unref(p_info->po_packet);
+    }
+    return ES_UNKNOW;
+}
+
+int stream_package_encode::before_step(info_av_ptr p_info){
+    return ES_SUCCESS;
+}
+
+int stream_package_encode::after_step(info_av_ptr p_info){
+    if (nullptr != p_info->po_packet)
+    {
+        av_packet_unref(p_info->po_packet);
+    }
+    return ES_SUCCESS;
+}
+
+int stream_package_encode::encode_video(info_av_ptr p_info)
+{
+    auto ret = avcodec_send_frame(p_info->p_stream->po_code_ctx, p_info->p_frame);
+    if (0 > ret)
+    {
+        if (AVERROR_EOF == ret)
+        {
+            avcodec_flush_buffers(p_info->p_stream->pi_code_ctx);
+            return ES_EOF;
+        }
+        else if (AVERROR(EAGAIN) == ret)
+        {
+            return ES_AGAIN;
+        }
+        else
+        {
+            return ES_UNKNOW;
+        }
+    }
+    
+    ret = avcodec_receive_packet(p_info->p_stream->po_code_ctx, p_info->po_packet);
+    if (0 > ret)
+    {
+        return ES_UNKNOW;
+    }
+    p_info->po_packet->stream_index = p_info->p_stream->po_stream->index;
+    av_packet_rescale_ts(p_info->po_packet, p_info->p_stream->po_code_ctx->time_base, p_info->p_stream->po_stream->time_base);
+    return ES_SUCCESS;
+}
+
+int stream_package_encode::encode_audio(info_av_ptr p_info)
+{
+    return ES_SUCCESS;
 }

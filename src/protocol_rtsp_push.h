@@ -8,16 +8,15 @@
 
 
 
-class protocol_rtsp_push : public i_stream{
+class protocol_rtsp_push : public stream_base{
 public:
     protocol_rtsp_push(const std::string& url);
 
-    virtual bool add_stream(std::shared_ptr<i_stream> p_stream);
-    virtual bool before_stream(info_av_ptr p_info);
-    virtual bool do_stream(info_av_ptr p_info);
+    virtual int before_stream(info_av_ptr p_info);
+    virtual int step(info_av_ptr p_info);
+    virtual int after_stream(info_av_ptr p_info);
 protected:
     std::string m_url;
-    info_av_ptr mp_info;
 };
 typedef std::shared_ptr<protocol_rtsp_push> protocol_rtsp_push_ptr;
 

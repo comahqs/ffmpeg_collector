@@ -3,16 +3,16 @@
 
 #include "i_stream.h"
 
-class stream_package_decode : public i_stream
+class stream_package_decode : public stream_base
 {
 public:
-    virtual bool add_stream(std::shared_ptr<i_stream> p_stream);
-    virtual bool before_stream(info_av_ptr p_info);
-    virtual bool do_stream(info_av_ptr p_info);
-    virtual bool after_stream(info_av_ptr p_info);
+    virtual int before_stream(info_av_ptr p_info);
+    virtual int step(info_av_ptr p_info);
+    virtual int after_stream(info_av_ptr p_info);
 
 protected:
-     std::shared_ptr<i_stream> mp_stream;
+    virtual int decode_video(info_av_ptr p_info);
+    virtual int decode_audio(info_av_ptr p_info);
 };
 typedef std::shared_ptr<stream_package_decode> stream_package_decode_ptr;
 
