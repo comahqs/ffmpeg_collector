@@ -10,7 +10,7 @@ extern "C"
 
 int stream_package_decode::before_stream(info_av_ptr p_info)
 {
-    int ret = 0;
+    int ret = ES_SUCCESS;
     ret = avformat_find_stream_info(p_info->pi_fmt_ctx, nullptr);
     if (0 > ret)
     {
@@ -50,11 +50,12 @@ int stream_package_decode::before_stream(info_av_ptr p_info)
         auto ret = avcodec_open2(p_info_stream->pi_code_ctx, pi_code, nullptr);
         p_info->streams[index_stream] = p_info_stream;
     }
-    return ES_SUCCESS;
+    return stream_base::before_stream(p_info);
 }
 
-int stream_package_decode::step(info_av_ptr p_info)
+int stream_package_decode::do_stream(info_av_ptr p_info)
 {
+    auto ret = ES_SUCCESS;
     if (0 <= p_info->p_packet->stream_index || static_cast<int>(p_info->streams.size()) > p_info->p_packet->stream_index)
     {
         p_info->p_stream = p_info->streams[p_info->p_packet->stream_index];
@@ -63,11 +64,11 @@ int stream_package_decode::step(info_av_ptr p_info)
 
             if (AVMEDIA_TYPE_VIDEO == p_info->p_stream->pi_code_ctx->codec_type)
             {
-                return decode_video(p_info);
+                ret = decode_video(p_info);
             }
             else if (AVMEDIA_TYPE_AUDIO == p_info->p_stream->pi_code_ctx->codec_type)
             {
-                return decode_audio(p_info);
+                ret = decode_audio(p_info);
             }
             else
             {
@@ -83,12 +84,13 @@ int stream_package_decode::step(info_av_ptr p_info)
     {
         LOG_ERROR("索引超过范围:" << p_info->p_packet->stream_index << "; 实际最大索引:" << p_info->streams.size());
     }
-    return ES_SUCCESS;
-}
 
-int stream_package_decode::after_stream(info_av_ptr p_info)
-{
-    return ES_SUCCESS;
+    if (ES_SUCCESS != ret)
+    {
+        return ret;
+    }
+
+    return stream_base::do_stream(p_info);
 }
 
 int stream_package_decode::decode_video(info_av_ptr p_info)
@@ -101,13 +103,19 @@ int stream_package_decode::decode_video(info_av_ptr p_info)
             av_packet_rescale_ts(p_info->p_packet, p_info->p_stream->pstream_base->time_base, p_info->p_stream->pi_code_ctx->time_base);
         }
         ret = avcodec_send_packet(p_info->p_stream->pi_code_ctx, p_info->p_packet);
-        if(0 == ret){
-
-        }else if(AVERROR(EAGAIN) == ret){
+        if (0 == ret)
+        {
+        }
+        else if (AVERROR(EAGAIN) == ret)
+        {
             return ES_AGAIN;
-        }else if(AVERROR_EOF == ret){
+        }
+        else if (AVERROR_EOF == ret)
+        {
             return ES_EOF;
-        }else{
+        }
+        else
+        {
             return ES_UNKNOW;
         }
         while (true)

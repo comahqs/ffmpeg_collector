@@ -79,24 +79,34 @@ int stream_package_encode::before_stream(info_av_ptr p_info)
             avcodec_parameters_from_context(p_info_stream->po_stream->codecpar, p_info_stream->po_code_ctx);
         }
     }
-    return ES_SUCCESS;
+    return stream_base::before_stream(p_info);
 }
 
-int stream_package_encode::step(info_av_ptr p_info)
+int stream_package_encode::do_stream(info_av_ptr p_info)
 {
+    auto ret = ES_SUCCESS;
     if (AVMEDIA_TYPE_VIDEO == p_info->p_stream->pi_code_ctx->codec_type)
     {
-        return encode_video(p_info);
+        ret = encode_video(p_info);
     }
     else if (AVMEDIA_TYPE_AUDIO == p_info->p_stream->pi_code_ctx->codec_type)
     {
-        return encode_audio(p_info);
+        ret = encode_audio(p_info);
     }
     else
     {
         return ES_UNKNOW;
     }
-    return ES_SUCCESS;
+    if(ES_SUCCESS != ret){
+        return ret;
+    }
+    
+    ret =  stream_base::do_stream(p_info);
+    if (nullptr != p_info->po_packet)
+    {
+        av_packet_unref(p_info->po_packet);
+    }
+    return ret;
 }
 
 int stream_package_encode::after_stream(info_av_ptr p_info)
@@ -106,18 +116,6 @@ int stream_package_encode::after_stream(info_av_ptr p_info)
         av_packet_unref(p_info->po_packet);
     }
     return ES_UNKNOW;
-}
-
-int stream_package_encode::before_step(info_av_ptr p_info){
-    return ES_SUCCESS;
-}
-
-int stream_package_encode::after_step(info_av_ptr p_info){
-    if (nullptr != p_info->po_packet)
-    {
-        av_packet_unref(p_info->po_packet);
-    }
-    return ES_SUCCESS;
 }
 
 int stream_package_encode::encode_video(info_av_ptr p_info)

@@ -32,6 +32,7 @@ public:
 };
 using info_stream_ptr = std::shared_ptr<info_stream>;
 
+
 class info_av{
 public:
     AVFormatContext* pi_fmt_ctx = nullptr;
@@ -49,11 +50,13 @@ using info_av_ptr = std::shared_ptr<info_av>;
 
 class stream_base{
 public:
-    virtual int before_stream(info_av_ptr p_info) {return ES_SUCCESS;};
-    virtual int before_step(info_av_ptr p_info) {return ES_SUCCESS;};
-    virtual int step(info_av_ptr p_info) {return ES_SUCCESS;};
-    virtual int after_step(info_av_ptr p_info) {return ES_SUCCESS;};
-    virtual int after_stream(info_av_ptr p_info) {return ES_SUCCESS;};
+    virtual bool add_stream( std::shared_ptr<stream_base> p_stream){mp_stream = p_stream;};
+    virtual int before_stream(info_av_ptr p_info) {return nullptr != mp_stream ? mp_stream->before_stream(p_info) : ES_UNKNOW;};
+    virtual int do_stream(info_av_ptr p_info) {return nullptr != mp_stream ? mp_stream->do_stream(p_info) : ES_UNKNOW;};
+    virtual int after_stream(info_av_ptr p_info) {return nullptr != mp_stream ? mp_stream->after_stream(p_info) : ES_UNKNOW;};
+
+protected:
+     std::shared_ptr<stream_base>mp_stream;
 };
 using stream_base_ptr = std::shared_ptr<stream_base>;
 

@@ -3,7 +3,7 @@
 #include "../src/utility_tool.h"
 
 
-#include "test_stream.h"
+#include "../src/control.h"
 
 int main()
 {
@@ -11,9 +11,9 @@ int main()
     LOG_INFO("");
     LOG_INFO("程序开始运行");
     {
-        test_stream stream;
+        control stream("rtmp://192.168.0.210:1935/live", "rtmp://192.168.0.210:1935/hls");
         stream.start();
-        stream.stop();
+        //stream.stop();
     }
 
     LOG_INFO("程序结束运行");
