@@ -31,20 +31,13 @@ public:
 };
 using info_stream_ptr = std::shared_ptr<info_stream>;
 
-class info_gather{
+class info_av{
 public:
     AVFormatContext* pi_fmt_ctx = nullptr;
     AVFormatContext* po_fmt_ctx = nullptr;
     std::vector<info_stream_ptr> streams;
     AVPacket* p_packet = nullptr;
     AVFrame *p_frame = nullptr;
-};
-using info_gather_ptr = std::shared_ptr<info_gather>;
-
-class info_av{
-public:
-    std::vector<info_gather_ptr> inputs;
-    int index_input = -1;
 };
 using info_av_ptr = std::shared_ptr<info_av>;
 
