@@ -14,16 +14,12 @@ int stream_package_encode::before_stream(info_av_ptr p_info)
     if(ES_SUCCESS != ret){
         return ret;
     }
-    if (nullptr == p_info->po_packet)
-    {
-        p_info->po_packet = (AVPacket *)av_malloc(sizeof(AVPacket));
-        av_init_packet(p_info->po_packet);
-    }
-    for (auto &p_info_stream : p_info->streams)
+    auto p_info_gather = p_info->inputs[p_info->index_input];
+    for (auto &p_info_stream : p_info_gather->streams)
     {
         if (AVMEDIA_TYPE_VIDEO == p_info_stream->pi_code_ctx->codec_type)
         {
-            p_info_stream->po_stream = avformat_new_stream(p_info->po_fmt_ctx, nullptr);
+            p_info_stream->po_stream = avformat_new_stream(p_info_gather->po_fmt_ctx, nullptr);
             if (nullptr == p_info_stream->po_stream)
             {
                 LOG_ERROR("新建输出流失败");
@@ -56,12 +52,12 @@ int stream_package_encode::before_stream(info_av_ptr p_info)
             avcodec_open2(p_info_stream->po_code_ctx, codec, nullptr);
             //将AVCodecContext的成员复制到AVCodecParameters结构体。前后两行不能调换顺序
             avcodec_parameters_from_context(p_info_stream->po_stream->codecpar, p_info_stream->po_code_ctx);
-            p_info_stream->po_stream->avg_frame_rate = p_info_stream->pstream_base->avg_frame_rate;
-            p_info_stream->po_stream->r_frame_rate = p_info_stream->pstream_base->r_frame_rate;
+            p_info_stream->po_stream->avg_frame_rate = p_info_stream->pi_stream->avg_frame_rate;
+            p_info_stream->po_stream->r_frame_rate = p_info_stream->pi_stream->r_frame_rate;
         }
         else if (AVMEDIA_TYPE_AUDIO == p_info_stream->pi_code_ctx->codec_type)
         {
-            p_info_stream->po_stream = avformat_new_stream(p_info->po_fmt_ctx, nullptr);
+            p_info_stream->po_stream = avformat_new_stream(p_info_gather->po_fmt_ctx, nullptr);
             if (nullptr == p_info_stream->po_stream)
             {
                 LOG_ERROR("新建输出流失败");

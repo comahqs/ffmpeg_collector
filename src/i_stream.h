@@ -24,26 +24,27 @@ class AVCodecContext;
 
 class info_stream{
 public:
-    AVStream* pstream_base = nullptr;
+    AVStream* pi_stream = nullptr;
     AVCodecContext* pi_code_ctx = nullptr;
     AVStream* po_stream = nullptr;
     AVCodecContext* po_code_ctx = nullptr;
-    int o_stream_index = -1;
 };
 using info_stream_ptr = std::shared_ptr<info_stream>;
 
-
-class info_av{
+class info_gather{
 public:
     AVFormatContext* pi_fmt_ctx = nullptr;
     AVFormatContext* po_fmt_ctx = nullptr;
-
     std::vector<info_stream_ptr> streams;
     AVPacket* p_packet = nullptr;
     AVFrame *p_frame = nullptr;
-    info_stream_ptr p_stream = nullptr;
+};
+using info_gather_ptr = std::shared_ptr<info_gather>;
 
-    AVPacket* po_packet = nullptr;
+class info_av{
+public:
+    std::vector<info_gather_ptr> inputs;
+    int index_input = -1;
 };
 using info_av_ptr = std::shared_ptr<info_av>;
 
