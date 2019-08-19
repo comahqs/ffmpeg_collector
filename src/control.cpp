@@ -8,8 +8,7 @@ extern "C"
 }
 #include "utility_tool.h"
 
-
-control::control(const std::string& url_input, const std::string& url_output) : m_url_input(url_input), m_url_output(url_output)
+control::control(const std::string &url_input, const std::string &url_output) : m_url_input(url_input), m_url_output(url_output)
 {
 }
 
@@ -25,11 +24,13 @@ void control::stop()
     m_thread.join();
 }
 
-void control::wait(){
+void control::wait()
+{
     m_thread.join();
 }
 
-int control::start_input(info_av_ptr& p_info, const std::string& url_input){
+int control::start_input(info_av_ptr &p_info, const std::string &url_input)
+{
     auto ret = avformat_open_input(&p_info->pi_fmt_ctx, url_input.c_str(), nullptr, nullptr);
     if (0 != ret)
     {
@@ -85,15 +86,16 @@ int control::start_input(info_av_ptr& p_info, const std::string& url_input){
     return ES_SUCCESS;
 }
 
-int control::start_output(info_av_ptr& p_info, const std::string& url_output){
+int control::start_output(info_av_ptr &p_info, const std::string &url_output)
+{
     auto ret = ES_SUCCESS;
     if (0 > avformat_alloc_output_context2(&p_info->po_fmt_ctx, nullptr, "flv", url_output.c_str()))
     {
         LOG_ERROR("打开输出流失败");
         return ES_UNKNOW;
     }
-    //p_info->po_fmt_ctx->duration = p_info->pi_fmt_ctx->duration;
-    //p_info->po_fmt_ctx->bit_rate = p_info->pi_fmt_ctx->bit_rate;
+    p_info->po_fmt_ctx->duration = p_info->pi_fmt_ctx->duration;
+    p_info->po_fmt_ctx->bit_rate = p_info->pi_fmt_ctx->bit_rate;
 
     if (!(p_info->po_fmt_ctx->oformat->flags & AVFMT_NOFILE))
     {
@@ -136,7 +138,6 @@ int control::start_output(info_av_ptr& p_info, const std::string& url_output){
             p_info_stream->po_code_ctx->time_base = p_info_stream->pi_code_ctx->time_base;
             p_info_stream->po_code_ctx->framerate = p_info_stream->pi_code_ctx->framerate;
             p_info_stream->po_code_ctx->bit_rate = p_info_stream->pi_code_ctx->bit_rate;
-		
 
             avcodec_open2(p_info_stream->po_code_ctx, codec, nullptr);
             //将AVCodecContext的成员复制到AVCodecParameters结构体。前后两行不能调换顺序
@@ -178,33 +179,44 @@ int control::start_output(info_av_ptr& p_info, const std::string& url_output){
     return ES_SUCCESS;
 }
 
-int control::do_stream(info_av_ptr& p_info){
-    auto ret = av_read_frame(p_info->pi_fmt_ctx, p_info->p_packet);
-    if (0 > ret)
+int control::do_stream(info_av_ptr &p_info)
+{
+    while (true)
     {
-        if ((ret == AVERROR_EOF) || avio_feof(p_info->pi_fmt_ctx->pb))
+        auto ret = av_read_frame(p_info->pi_fmt_ctx, p_info->p_packet);
+        if (0 > ret)
         {
-            // 已经读取完了
-            return ES_EOF;
+            /*
+            if ((ret == AVERROR_EOF) || avio_feof(p_info->pi_fmt_ctx->pb))
+            {
+                // 已经读取完了
+                return ES_EOF;
+            }
+            else
+            {
+                LOG_ERROR("获取输入帧时发生错误:" << ret);
+                return ES_UNKNOW;
+            }
+            */
+            return ret;
         }
-        else
+        ret = decode(p_info);
+        if (nullptr != p_info->p_packet)
         {
-            LOG_ERROR("获取输入帧时发生错误:" << ret);
-            return ES_UNKNOW;
+            av_packet_unref(p_info->p_packet);
         }
-    }
-    ret = decode(p_info);
-    if (nullptr != p_info->p_packet)
-    {
-        av_packet_unref(p_info->p_packet);
+        if(ES_SUCCESS != ret){
+            break;
+        }
     }
 }
 
-int control::decode(info_av_ptr& p_info){
+int control::decode(info_av_ptr &p_info)
+{
     auto ret = ES_SUCCESS;
     if (0 <= p_info->p_packet->stream_index || static_cast<int>(p_info->streams.size()) > p_info->p_packet->stream_index)
     {
-        auto p_stream = p_info->streams[ p_info->p_packet->stream_index];
+        auto p_stream = p_info->streams[p_info->p_packet->stream_index];
         if (nullptr != p_stream)
         {
 
@@ -239,10 +251,10 @@ int control::decode(info_av_ptr& p_info){
     return ret;
 }
 
-int control::decode_video(info_av_ptr& p_info)
+int control::decode_video(info_av_ptr &p_info)
 {
     int ret = 0;
-    auto p_stream = p_info->streams[ p_info->p_packet->stream_index];
+    auto p_stream = p_info->streams[p_info->p_packet->stream_index];
     while (true)
     {
         if (p_info->p_packet->data != nullptr) // not a flush packet
@@ -295,15 +307,15 @@ int control::decode_video(info_av_ptr& p_info)
     return ES_SUCCESS;
 }
 
-int control::decode_audio(info_av_ptr& p_info)
+int control::decode_audio(info_av_ptr &p_info)
 {
     return encode(p_info);
 }
 
-int control::encode(info_av_ptr& p_info)
+int control::encode(info_av_ptr &p_info)
 {
     auto ret = ES_SUCCESS;
-    auto p_stream = p_info->streams[ p_info->p_packet->stream_index];
+    auto p_stream = p_info->streams[p_info->p_packet->stream_index];
     if (AVMEDIA_TYPE_VIDEO == p_stream->pi_code_ctx->codec_type)
     {
         ret = encode_video(p_info);
@@ -316,15 +328,16 @@ int control::encode(info_av_ptr& p_info)
     {
         return ES_UNKNOW;
     }
-    if(ES_SUCCESS != ret){
+    if (ES_SUCCESS != ret)
+    {
         return ret;
     }
     return ret;
 }
 
-int control::encode_video(info_av_ptr& p_info)
+int control::encode_video(info_av_ptr &p_info)
 {
-    auto p_stream = p_info->streams[ p_info->p_packet->stream_index];
+    auto p_stream = p_info->streams[p_info->p_packet->stream_index];
     auto ret = avcodec_send_frame(p_stream->po_code_ctx, p_info->p_frame);
     if (0 > ret)
     {
@@ -354,18 +367,18 @@ int control::encode_video(info_av_ptr& p_info)
 
     auto p_packet_old = p_info->p_packet;
     p_info->p_packet = &packet;
-    ret =  output(p_info);
+    ret = output(p_info);
     p_info->p_packet = p_packet_old;
     return ret;
 }
 
-int control::encode_audio(info_av_ptr& p_info)
+int control::encode_audio(info_av_ptr &p_info)
 {
     return output(p_info);
 }
 
-int control::output(info_av_ptr& p_info)
-{   
+int control::output(info_av_ptr &p_info)
+{
     if (!(p_info->p_packet))
     {
         // 结束了
@@ -375,7 +388,7 @@ int control::output(info_av_ptr& p_info)
     return ES_SUCCESS;
 }
 
-int control::stop_input(info_av_ptr& p_info)
+int control::stop_input(info_av_ptr &p_info)
 {
     if (nullptr != p_info->p_frame)
     {
@@ -397,9 +410,10 @@ int control::stop_input(info_av_ptr& p_info)
     return ES_SUCCESS;
 }
 
-int control::stop_output(info_av_ptr& p_info)
+int control::stop_output(info_av_ptr &p_info)
 {
-    if(nullptr != p_info->po_fmt_ctx){
+    if (nullptr != p_info->po_fmt_ctx)
+    {
         auto ret = av_write_trailer(p_info->po_fmt_ctx);
         avformat_free_context(p_info->po_fmt_ctx);
         p_info->po_fmt_ctx = nullptr;
@@ -407,7 +421,7 @@ int control::stop_output(info_av_ptr& p_info)
     return ES_SUCCESS;
 }
 
-void control::handle_thread(const std::string& url_input, const std::string& url_output, std::shared_ptr<std::atomic_bool> pflag_stop)
+void control::handle_thread(const std::string &url_input, const std::string &url_output, std::shared_ptr<std::atomic_bool> pflag_stop)
 {
     LOG_INFO("开始处理视频流:" << url_input);
     auto p_info = std::make_shared<info_av>();
@@ -416,7 +430,7 @@ void control::handle_thread(const std::string& url_input, const std::string& url
     {
         return;
     }
-    
+
     while (!(*pflag_stop))
     {
         ret = do_stream(p_info);

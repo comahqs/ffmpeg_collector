@@ -5,12 +5,27 @@
 #include <thread>
 #include <atomic>
 #include <map>
+extern "C"
+{
+#include <libavutil/avutil.h>
+}
 
 
 class AVFilterGraph;
 class AVFilterContext;
-class key_complex;
+class key_complex
+{
+public:
+    key_complex(const info_av_ptr &p, const AVMediaType &t) : p_info(p), type(t) {}
+    info_av_ptr p_info;
+    AVMediaType type;
+};
+bool operator<(const key_complex& k1, const key_complex& k2);
 
+class less_key_complex{
+public:
+    bool operator()(const key_complex& k1, const key_complex& k2) const;
+};
 
 
 class control_complex : public control
@@ -27,7 +42,8 @@ protected:
     virtual int encode_complex(info_av_ptr& p_info);
     virtual int init_filter_video(AVFilterGraph*& p_graph, std::vector<AVFilterContext*>& input_buffer_cxts, AVFilterContext*& p_output_buffer_cxt, std::vector<info_av_ptr>& infos);
     virtual int init_filter_audio(AVFilterGraph*& p_graph, std::vector<AVFilterContext*>& input_buffer_cxts, AVFilterContext*& p_output_buffer_cxt, std::vector<info_av_ptr>& infos);
-
+    virtual int decode_audio(info_av_ptr& p_info);
+    
     std::vector<std::string> m_url_input;
     std::string m_url_output;
     std::thread m_thread;
@@ -39,7 +55,7 @@ protected:
     std::vector<AVFilterContext*> m_audio_input_buffer_cxts;
     AVFilterContext* mp_audio_output_buffer_cxt = nullptr;
 
-    std::map<key_complex, AVFilterContext*> m_map_cxts;
+    std::map<key_complex, AVFilterContext*, less_key_complex> m_map_cxts;
 };
 typedef std::shared_ptr<control_complex> control_complex_ptr;
 
