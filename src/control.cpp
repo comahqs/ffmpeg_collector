@@ -16,7 +16,7 @@ control::control(const std::string& url_input, const std::string& url_output) : 
 bool control::start()
 {
     mp_bstop = std::make_shared<std::atomic_bool>(false);
-    m_thread = std::thread(std::bind(control::handle_thread, this, m_url_input, m_url_output, mp_bstop));
+    m_thread = std::thread(std::bind(&control::handle_thread, this, m_url_input, m_url_output, mp_bstop));
 }
 
 void control::stop()

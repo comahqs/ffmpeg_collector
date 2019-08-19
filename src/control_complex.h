@@ -9,14 +9,8 @@
 
 class AVFilterGraph;
 class AVFilterContext;
-enum AVMediaType;
-class key_complex{
-public:
-    key_complex(const info_av_ptr& p, const AVMediaType& t):p_info(p), type(t){}
+class key_complex;
 
-    info_av_ptr p_info;
-    AVMediaType type;
-};
 
 
 class control_complex : public control

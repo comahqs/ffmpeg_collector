@@ -9,6 +9,25 @@ extern "C"
 #include <libavfilter/buffersink.h>
 }
 
+class key_complex{
+public:
+    key_complex(const info_av_ptr& p, const AVMediaType& t):p_info(p), type(t){}
+
+    bool operator<(const key_complex& other) const{
+        if(p_info.get() < other.p_info.get()){
+            return true;
+        }else if(p_info.get() == other.p_info.get()){
+            return type < other.type;
+        }
+        return false;
+    }
+
+    info_av_ptr p_info;
+    AVMediaType type;
+
+};
+
+
 control_complex::control_complex(const std::vector<std::string> &url_input, const std::string &url_output) : control("", url_output), m_url_input(url_input), m_url_output(url_output)
 {
 }
@@ -20,7 +39,7 @@ bool control_complex::start()
         return false;
     }
     mp_bstop = std::make_shared<std::atomic_bool>(false);
-    m_thread = std::thread(std::bind(control_complex::handle_thread_complex, this, m_url_input, m_url_output, mp_bstop));
+    m_thread = std::thread(std::bind(&control_complex::handle_thread_complex, this, m_url_input, m_url_output, mp_bstop));
 }
 
 void control_complex::stop()
