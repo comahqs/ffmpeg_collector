@@ -126,7 +126,6 @@ int control_complex::start_input(info_control_complex_ptr &p_info, const std::ve
         }
 
         p_gather->p_packet = av_packet_alloc();
-        p_gather->p_frame = av_frame_alloc();
         {
             AVCodec *pi_code = nullptr;
             auto index_stream = av_find_best_stream(p_gather->p_fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &(pi_code), 0);
@@ -421,10 +420,11 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
     }
     auto po_gather = p_info->outputs[0];
     int step = static_cast<int>(ceil(sqrt(p_info->inputs.size())));
-    auto step_height = po_gather->p_video_code_ctx->height / step;
-    auto step_width = po_gather->p_video_code_ctx->width / step;
+    //auto step_height = po_gather->p_video_code_ctx->height / step;
+    //auto step_width = po_gather->p_video_code_ctx->width / step;
     // 先缩放，然后再拼接
-    
+    auto step_width = po_gather->po_frame->linesize[0] / step;
+    auto step_height = po_gather->po_frame->linesize[1] / step;
 
     memset(po_gather->po_frame->data[0], 0, po_gather->po_frame->width * po_gather->po_frame->height);
     memset(po_gather->po_frame->data[1], 0x80, po_gather->po_frame->width * po_gather->po_frame->height / 4);
@@ -445,13 +445,13 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
             memcpy(po_gather->po_frame->data[0] + row * step_height  * step_width * step + column * step_width + j * step_width * step, p_input->po_frame->data[0] + j * step_width, step_width);
         }
         for(int j = 0; j < step_height / 2; ++j){
-            memcpy(po_gather->po_frame->data[1] + row * step_height * step_width * step/4 + column * step_width/2 + j * step_width, p_input->po_frame->data[1] + j * step_width/2, step_width/2);
-            memcpy(po_gather->po_frame->data[2] + row * step_height * step_width * step/4 + column * step_width/2 + j * step_width, p_input->po_frame->data[2] + j * step_width/2, step_width/2);
+            memcpy(po_gather->po_frame->data[1] + row * step_height * step_width * step/4 + column * step_width/2 + j * step_width * step / 2, p_input->po_frame->data[1] + j * step_width/2, step_width/2);
+            memcpy(po_gather->po_frame->data[2] + row * step_height * step_width * step/4 + column * step_width/2 + j * step_width * step / 2, p_input->po_frame->data[2] + j * step_width/2, step_width/2);
         }
-        po_gather->po_frame->pts = p_input->p_frame->pts;
+        po_gather->po_frame->pts = std::max(po_gather->po_frame->pts, p_input->p_frame->pts);
         
-        av_frame_free(&p_input->p_frame);
-        p_input->p_frame = nullptr;
+        //av_frame_free(&p_input->p_frame);
+        //p_input->p_frame = nullptr;
     }
 
     ret = avcodec_send_frame(po_gather->p_video_code_ctx, po_gather->po_frame);
