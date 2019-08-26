@@ -461,6 +461,8 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
 
     ret = avcodec_send_frame(po_gather->p_video_code_ctx, po_frame);
     //LOG_DEBUG(po_frame->pts);
+    av_free(po_tmp_buffer);
+    av_free(po_buffer);
     av_frame_free(&po_tmp_frame);
     av_frame_free(&po_frame);
     if (0 > ret)
