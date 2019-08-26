@@ -39,6 +39,7 @@ public:
     AVCodecContext* p_audio_code_ctx = nullptr;
 
     struct SwsContext* p_video_sws_ctx = nullptr;
+    AVFrame* po_frame = nullptr;
 };
 using info_gather_ptr  = std::shared_ptr<info_gather>;
 

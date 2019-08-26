@@ -245,13 +245,25 @@ int control_complex::start_output(info_control_complex_ptr &p_info, const std::s
     }
     */
     p_info->outputs.push_back(p_gather);
-    /*
+    int step = static_cast<int>(ceil(sqrt(p_info->inputs.size())));
+    auto step_height = p_gather->p_video_code_ctx->height / step;
+    auto step_width = p_gather->p_video_code_ctx->width / step;
     for (auto &p_input : p_info->inputs)
     {
         p_input->p_video_sws_ctx = sws_getContext(p_input->p_video_code_ctx->width, p_input->p_video_code_ctx->height, p_input->p_video_code_ctx->pix_fmt,
-                                                  p_gather->p_video_code_ctx->width, p_gather->p_video_code_ctx->height, p_gather->p_video_code_ctx->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr);
+            step_width, step_height, p_gather->p_video_code_ctx->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr);
+        
+        p_input->po_frame = av_frame_alloc();
+        uint8_t *po_tmp_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(p_gather->p_video_code_ctx->pix_fmt, step_width, step_height, 1));
+        av_image_fill_arrays(p_input->po_frame->data, p_input->po_frame->linesize, po_tmp_buffer, p_gather->p_video_code_ctx->pix_fmt, step_width, step_height, 1);
     }
-    */
+    
+    p_gather->po_frame = av_frame_alloc();
+    uint8_t *po_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(p_gather->p_video_code_ctx->pix_fmt, p_gather->p_video_code_ctx->width, p_gather->p_video_code_ctx->height, 1));
+    av_image_fill_arrays(p_gather->po_frame->data, p_gather->po_frame->linesize, po_buffer, p_gather->p_video_code_ctx->pix_fmt, p_gather->p_video_code_ctx->width, p_gather->p_video_code_ctx->height, 1);
+    p_gather->po_frame->width = p_gather->p_video_code_ctx->width;
+    p_gather->po_frame->height = p_gather->p_video_code_ctx->height;
+    p_gather->po_frame->format = p_gather->p_video_code_ctx->pix_fmt;
 
     ret = avformat_write_header(p_gather->p_fmt_ctx, nullptr);
 
@@ -411,22 +423,10 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
     auto step_height = po_gather->p_video_code_ctx->height / step;
     auto step_width = po_gather->p_video_code_ctx->width / step;
     // 先缩放，然后再拼接
-    AVFrame *po_tmp_frame = av_frame_alloc();
-    uint8_t *po_tmp_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(po_gather->p_video_code_ctx->pix_fmt, step_width, step_height, 1));
-    av_image_fill_arrays(po_tmp_frame->data, po_tmp_frame->linesize, po_tmp_buffer, po_gather->p_video_code_ctx->pix_fmt, step_width, step_height, 1);
-    step_width = std::min(step_width, po_tmp_frame->linesize[0]);
-    step_height = std::min(step_height, po_tmp_frame->linesize[1]);
-    
-    AVFrame *po_frame = av_frame_alloc();
-    uint8_t *po_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(po_gather->p_video_code_ctx->pix_fmt, po_gather->p_video_code_ctx->width, po_gather->p_video_code_ctx->height, 1));
-    av_image_fill_arrays(po_frame->data, po_frame->linesize, po_buffer, po_gather->p_video_code_ctx->pix_fmt, po_gather->p_video_code_ctx->width, po_gather->p_video_code_ctx->height, 1);
-    po_frame->format = po_gather->p_video_code_ctx->pix_fmt;
-    po_frame->width = po_gather->p_video_code_ctx->width;
-    po_frame->height = po_gather->p_video_code_ctx->height;
-    po_frame->pict_type = AV_PICTURE_TYPE_I;
-    memset(po_frame->data[0], 0, po_frame->width * po_frame->height);
-    memset(po_frame->data[1], 0x80, po_frame->width * po_frame->height / 4);
-    memset(po_frame->data[2], 0x80, po_frame->width * po_frame->height / 4);
+
+    memset(po_gather->po_frame->data[0], 0, po_gather->po_frame->width * po_gather->po_frame->height);
+    memset(po_gather->po_frame->data[1], 0x80, po_gather->po_frame->width * po_gather->po_frame->height / 4);
+    memset(po_gather->po_frame->data[2], 0x80, po_gather->po_frame->width * po_gather->po_frame->height / 4);
 
     for (std::size_t i = 0; i < p_info->inputs.size(); ++i)
     {
@@ -435,36 +435,28 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
         {
             continue;
         }
-        if (nullptr == p_input->p_video_sws_ctx)
-        {
-            p_input->p_video_sws_ctx = sws_getContext(p_input->p_video_code_ctx->width, p_input->p_video_code_ctx->height, p_input->p_video_code_ctx->pix_fmt,
-                                                      step_width, step_height, po_gather->p_video_code_ctx->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr);
-        }
         sws_scale(p_input->p_video_sws_ctx, (const uint8_t *const *)p_input->p_frame->data, p_input->p_frame->linesize, 0, p_input->p_video_code_ctx->height,
-                  po_tmp_frame->data, po_tmp_frame->linesize);
+                  p_input->po_frame->data, p_input->po_frame->linesize);
         int row = static_cast<int>(i / step);
         int column = static_cast<int>(i % step);
         for(int j = 0; j < step_height; ++j){
-            memcpy(po_frame->data[0] + row * step_height  * step_width * step + column * step_width + j * step_width * step, po_tmp_frame->data[0] + j * step_width, step_width);
+            memcpy(po_gather->po_frame->data[0] + row * step_height  * step_width * step + column * step_width + j * step_width * step, p_input->po_frame->data[0] + j * step_width, step_width);
         }
         for(int j = 0; j < step_height / 2; ++j){
-            memcpy(po_frame->data[1] + row * step_height * step_width * step/4 + column * step_width/2 + j * step_width, po_tmp_frame->data[1] + j * step_width/2, step_width/2);
-            memcpy(po_frame->data[2] + row * step_height * step_width * step/4 + column * step_width/2 + j * step_width, po_tmp_frame->data[2] + j * step_width/2, step_width/2);
+            memcpy(po_gather->po_frame->data[1] + row * step_height * step_width * step/4 + column * step_width/2 + j * step_width, p_input->po_frame->data[1] + j * step_width/2, step_width/2);
+            memcpy(po_gather->po_frame->data[2] + row * step_height * step_width * step/4 + column * step_width/2 + j * step_width, p_input->po_frame->data[2] + j * step_width/2, step_width/2);
         }
 
-        av_frame_copy_props(po_frame, p_input->p_frame);
+        av_frame_copy_props(po_gather->po_frame, p_input->p_frame);
         av_frame_free(&p_input->p_frame);
         p_input->p_frame = nullptr;
     }
 
     
 
-    ret = avcodec_send_frame(po_gather->p_video_code_ctx, po_frame);
+    ret = avcodec_send_frame(po_gather->p_video_code_ctx, po_gather->po_frame);
     //LOG_DEBUG(po_frame->pts);
-    av_free(po_tmp_buffer);
-    av_free(po_buffer);
-    av_frame_free(&po_tmp_frame);
-    av_frame_free(&po_frame);
+
     if (0 > ret)
     {
         if (AVERROR_EOF == ret)
