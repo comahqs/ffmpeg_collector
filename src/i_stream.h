@@ -7,7 +7,7 @@
 
 
 const static int ES_SUCCESS = 0;
-const static int ES_AGAIN = 1;
+const static int ES_AGAIN = -11;
 const static int ES_EOF = 2;
 
 const static int ES_UNKNOW = -1;

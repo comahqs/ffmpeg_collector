@@ -20,10 +20,10 @@ int main()
     //av_log_set_level(AV_LOG_DEBUG);
     {
         std::vector<std::string> urls;
-        urls.push_back("rtmp://192.168.0.210:1935/live");
-        urls.push_back("rtmp://192.168.0.210:1935/live");
-        urls.push_back("rtmp://192.168.0.210:1935/live");
-        urls.push_back("rtmp://192.168.0.210:1935/live");
+        urls.push_back("/home/com/pq.mp4");
+        urls.push_back("/home/com/pq.mp4");
+        urls.push_back("/home/com/pq.mp4");
+        urls.push_back("/home/com/pq.mp4");
         control_complex stream(urls, "rtmp://192.168.0.210:1935/hls");
         stream.start();
         stream.wait();
