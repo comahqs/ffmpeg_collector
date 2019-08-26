@@ -453,6 +453,10 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
         //av_frame_free(&p_input->p_frame);
         //p_input->p_frame = nullptr;
     }
+    if(m_video_pts_last >= po_gather->po_frame->pts){
+        return ES_SUCCESS;
+    }
+    m_video_pts_last = po_gather->po_frame->pts;
 
     ret = avcodec_send_frame(po_gather->p_video_code_ctx, po_gather->po_frame);
     //LOG_DEBUG(po_frame->pts);

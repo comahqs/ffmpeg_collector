@@ -79,6 +79,7 @@ protected:
     std::string m_url_output;
     std::thread m_thread;
     std::shared_ptr<std::atomic_bool> mp_bstop;
+    int m_video_pts_last = -1;
 };
 typedef std::shared_ptr<control_complex> control_complex_ptr;
 
