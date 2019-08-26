@@ -396,6 +396,16 @@ int control_complex::decode_audio(info_gather_ptr &p_info)
 int control_complex::encode_video(info_control_complex_ptr p_info)
 {
     auto ret = ES_SUCCESS;
+    bool flag_video = false;
+    for (std::size_t i = 0; i < p_info->inputs.size(); ++i){
+        if(nullptr != p_info->inputs[i]->p_frame){
+            flag_video = true;
+            break;
+        }
+    }
+    if(!flag_video){
+        return ES_SUCCESS;
+    }
     auto po_gather = p_info->outputs[0];
     int step = static_cast<int>(ceil(sqrt(p_info->inputs.size())));
     auto step_height = po_gather->p_video_code_ctx->height / step;
@@ -418,7 +428,6 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
     memset(po_frame->data[1], 0x80, po_frame->width * po_frame->height / 4);
     memset(po_frame->data[2], 0x80, po_frame->width * po_frame->height / 4);
 
-    
     for (std::size_t i = 0; i < p_info->inputs.size(); ++i)
     {
         auto p_input = p_info->inputs[i];
@@ -444,11 +453,14 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
         }
 
         av_frame_copy_props(po_frame, p_input->p_frame);
+        av_frame_free(&p_input->p_frame);
+        p_input->p_frame = nullptr;
     }
+
     
 
     ret = avcodec_send_frame(po_gather->p_video_code_ctx, po_frame);
-    LOG_DEBUG(po_frame->pts);
+    //LOG_DEBUG(po_frame->pts);
     av_frame_free(&po_tmp_frame);
     av_frame_free(&po_frame);
     if (0 > ret)
@@ -490,6 +502,7 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
 }
 int control_complex::encode_audio(info_control_complex_ptr &p_info)
 {
+    return ES_SUCCESS;
 }
 
 int control_complex::output(AVPacket *p_packet, info_gather_ptr po_gather)
