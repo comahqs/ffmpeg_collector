@@ -370,6 +370,7 @@ int control_complex::decode_video(info_gather_ptr &p_info)
         ret = avcodec_receive_frame(p_info->p_video_code_ctx, p_frame);
         if (0 != ret)
         {
+            av_frame_free(&p_frame);
             if (AVERROR_EOF == ret)
             {
                 avcodec_flush_buffers(p_info->p_video_code_ctx);
@@ -423,6 +424,7 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
     auto step_height = po_gather->p_video_code_ctx->height / step;
     auto step_width = po_gather->p_video_code_ctx->width / step;
     // 先缩放，然后再拼接
+    
 
     memset(po_gather->po_frame->data[0], 0, po_gather->po_frame->width * po_gather->po_frame->height);
     memset(po_gather->po_frame->data[1], 0x80, po_gather->po_frame->width * po_gather->po_frame->height / 4);
@@ -446,13 +448,11 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
             memcpy(po_gather->po_frame->data[1] + row * step_height * step_width * step/4 + column * step_width/2 + j * step_width, p_input->po_frame->data[1] + j * step_width/2, step_width/2);
             memcpy(po_gather->po_frame->data[2] + row * step_height * step_width * step/4 + column * step_width/2 + j * step_width, p_input->po_frame->data[2] + j * step_width/2, step_width/2);
         }
-
-        av_frame_copy_props(po_gather->po_frame, p_input->p_frame);
+        po_gather->po_frame->pts = p_input->p_frame->pts;
+        
         av_frame_free(&p_input->p_frame);
         p_input->p_frame = nullptr;
     }
-
-    
 
     ret = avcodec_send_frame(po_gather->p_video_code_ctx, po_gather->po_frame);
     //LOG_DEBUG(po_frame->pts);
@@ -490,6 +490,8 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
         packet.stream_index = po_gather->p_video_stream->index;
         av_packet_rescale_ts(&packet, po_gather->p_video_code_ctx->time_base, po_gather->p_video_stream->time_base);
         ret = output(&packet, po_gather);
+
+        av_packet_unref(&packet);
     }
 
     return ret;
