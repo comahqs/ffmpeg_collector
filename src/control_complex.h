@@ -40,6 +40,7 @@ public:
 
     struct SwsContext* p_video_sws_ctx = nullptr;
     AVFrame* po_frame = nullptr;
+    AVFrame* p_frame_last = nullptr;
 };
 using info_gather_ptr  = std::shared_ptr<info_gather>;
 

@@ -61,9 +61,19 @@ void control_complex::wait()
 int control_complex::encode(info_control_complex_ptr &p_info)
 {
     int ret = ES_SUCCESS;
-    if (ES_SUCCESS != (ret = encode_video(p_info)) || ES_SUCCESS != (ret = encode_audio(p_info)))
+    if (p_info->inputs[0]->p_packet->stream_index == p_info->inputs[0]->p_video_stream->index)
     {
-        return ret;
+        if (ES_SUCCESS != (ret = encode_video(p_info)))
+        {
+            return ret;
+        }
+    }
+    else if (p_info->inputs[0]->p_packet->stream_index == p_info->inputs[0]->p_audio_stream->index)
+    {
+        if (ES_SUCCESS != (ret = encode_audio(p_info)))
+        {
+            return ret;
+        }
     }
     return ES_SUCCESS;
 }
@@ -125,7 +135,6 @@ int control_complex::start_input(info_control_complex_ptr &p_info, const std::ve
             return ES_UNKNOW;
         }
 
-        p_gather->p_packet = av_packet_alloc();
         {
             AVCodec *pi_code = nullptr;
             auto index_stream = av_find_best_stream(p_gather->p_fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &(pi_code), 0);
@@ -141,7 +150,6 @@ int control_complex::start_input(info_control_complex_ptr &p_info, const std::ve
             auto ret = avcodec_open2(p_gather->p_video_code_ctx, pi_code, nullptr);
         }
 
-        /*
         {
             AVCodec *pi_code = nullptr;
             auto index_stream = av_find_best_stream(p_gather->p_fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, &(pi_code), 0);
@@ -156,7 +164,6 @@ int control_complex::start_input(info_control_complex_ptr &p_info, const std::ve
             p_gather->p_audio_code_ctx->framerate = av_guess_frame_rate(p_gather->p_fmt_ctx, p_gather->p_audio_stream, nullptr);
             auto ret = avcodec_open2(p_gather->p_audio_code_ctx, pi_code, nullptr);
         }
-        */
         p_info->inputs.push_back(p_gather);
 
         printf("---------------- 输入文件信息 ---------------\n");
@@ -215,13 +222,25 @@ int control_complex::start_output(info_control_complex_ptr &p_info, const std::s
         p_gather->p_video_code_ctx->framerate = pi_video_code_ctx->framerate;
         p_gather->p_video_code_ctx->bit_rate = pi_video_code_ctx->bit_rate;
 
-        avcodec_open2(p_gather->p_video_code_ctx, codec, nullptr);
+        AVDictionary *opts = nullptr;
+        //av_dict_set(&opts, "profile", "baseline", 0);
+        //av_dict_set(&opts, "preset", "ultrafast", 0);
+        //av_dict_set(&opts, "tune", "zerolatency", 0);
+        ret = avcodec_open2(p_gather->p_video_code_ctx, codec, &opts);
+        if(0 > ret){
+            LOG_ERROR("打开输出解码器失败:"<<ret);
+            return ret;
+        }
+        //av_dict_free(&opts);
         //将AVCodecContext的成员复制到AVCodecParameters结构体。前后两行不能调换顺序
         avcodec_parameters_from_context(p_gather->p_video_stream->codecpar, p_gather->p_video_code_ctx);
         p_gather->p_video_stream->avg_frame_rate = p_gather->p_video_stream->avg_frame_rate;
         p_gather->p_video_stream->r_frame_rate = p_gather->p_video_stream->r_frame_rate;
+        p_gather->p_video_code_ctx->gop_size = 30;
+        p_gather->p_video_code_ctx->max_b_frames = 0;
+        //av_opt_set(p_gather->p_video_code_ctx->priv_data, "preset", "ultrafast", 0);
+        //av_opt_set(p_gather->p_video_code_ctx->priv_data, "tune", "zerolatency", 0);
     }
-/*
     {
         p_gather->p_audio_stream = avformat_new_stream(p_gather->p_fmt_ctx, nullptr);
         if (nullptr == p_gather->p_audio_stream)
@@ -242,7 +261,6 @@ int control_complex::start_output(info_control_complex_ptr &p_info, const std::s
         //将AVCodecContext的成员复制到AVCodecParameters结构体。前后两行不能调换顺序
         avcodec_parameters_from_context(p_gather->p_audio_stream->codecpar, p_gather->p_audio_code_ctx);
     }
-    */
     p_info->outputs.push_back(p_gather);
     int step = static_cast<int>(ceil(sqrt(p_info->inputs.size())));
     auto step_height = p_gather->p_video_code_ctx->height / step;
@@ -250,13 +268,13 @@ int control_complex::start_output(info_control_complex_ptr &p_info, const std::s
     for (auto &p_input : p_info->inputs)
     {
         p_input->p_video_sws_ctx = sws_getContext(p_input->p_video_code_ctx->width, p_input->p_video_code_ctx->height, p_input->p_video_code_ctx->pix_fmt,
-            step_width, step_height, p_gather->p_video_code_ctx->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr);
-        
+                                                  step_width, step_height, p_gather->p_video_code_ctx->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr);
+
         p_input->po_frame = av_frame_alloc();
         uint8_t *po_tmp_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(p_gather->p_video_code_ctx->pix_fmt, step_width, step_height, 1));
         av_image_fill_arrays(p_input->po_frame->data, p_input->po_frame->linesize, po_tmp_buffer, p_gather->p_video_code_ctx->pix_fmt, step_width, step_height, 1);
     }
-    
+
     p_gather->po_frame = av_frame_alloc();
     uint8_t *po_buffer = (uint8_t *)av_malloc(av_image_get_buffer_size(p_gather->p_video_code_ctx->pix_fmt, p_gather->p_video_code_ctx->width, p_gather->p_video_code_ctx->height, 1));
     av_image_fill_arrays(p_gather->po_frame->data, p_gather->po_frame->linesize, po_buffer, p_gather->p_video_code_ctx->pix_fmt, p_gather->p_video_code_ctx->width, p_gather->p_video_code_ctx->height, 1);
@@ -278,16 +296,17 @@ int control_complex::do_stream(info_control_complex_ptr &p_info)
     auto p_output = p_info->outputs[0];
     for (auto &p_gather : p_info->inputs)
     {
+        if(nullptr == p_gather->p_packet){
+            p_gather->p_packet = av_packet_alloc();
+        }else{
+            av_packet_unref(p_gather->p_packet);
+        }
         ret = av_read_frame(p_gather->p_fmt_ctx, p_gather->p_packet);
         if (0 != ret)
         {
             break;
         }
         ret = decode(p_gather);
-        if (nullptr != p_gather->p_packet)
-        {
-            av_packet_unref(p_gather->p_packet);
-        }
         if (0 != ret)
         {
             break;
@@ -322,7 +341,6 @@ int control_complex::decode(info_gather_ptr &p_input)
     {
         ret = decode_video(p_input);
     }
-    /*
     else if (p_input->p_audio_stream->index == p_input->p_packet->stream_index)
     {
         ret = decode_audio(p_input);
@@ -330,7 +348,7 @@ int control_complex::decode(info_gather_ptr &p_input)
     else
     {
         return ES_UNKNOW;
-    }*/
+    }
 
     if (ES_SUCCESS != ret)
     {
@@ -403,22 +421,36 @@ int control_complex::decode_video(info_gather_ptr &p_info)
 
 int control_complex::decode_audio(info_gather_ptr &p_info)
 {
+    /*
+    if (nullptr != p_info->p_audio_packet)
+    {
+        av_packet_free(&p_info->p_audio_packet);
+        p_info->p_audio_packet = nullptr;
+    }
+    p_info->p_audio_packet = av_packet_clone(p_info->p_packet);
+    */
+    return ES_SUCCESS;
 }
 
 int control_complex::encode_video(info_control_complex_ptr p_info)
 {
     auto ret = ES_SUCCESS;
+
     bool flag_video = false;
-    for (std::size_t i = 0; i < p_info->inputs.size(); ++i){
-        if(nullptr != p_info->inputs[i]->p_frame){
+    for (std::size_t i = 0; i < p_info->inputs.size(); ++i)
+    {
+        if (nullptr != p_info->inputs[i]->p_frame)
+        {
             flag_video = true;
             break;
         }
     }
-    if(!flag_video){
+    if (!flag_video)
+    {
         return ES_SUCCESS;
     }
     auto po_gather = p_info->outputs[0];
+
     int step = static_cast<int>(ceil(sqrt(p_info->inputs.size())));
     //auto step_height = po_gather->p_video_code_ctx->height / step;
     //auto step_width = po_gather->p_video_code_ctx->width / step;
@@ -433,28 +465,48 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
     for (std::size_t i = 0; i < p_info->inputs.size(); ++i)
     {
         auto p_input = p_info->inputs[i];
-        if (nullptr == p_input->p_frame)
+        auto p_frame = (nullptr != p_input->p_frame ? p_input->p_frame : p_input->p_frame_last);
+        if (nullptr == p_frame)
         {
             continue;
         }
-        sws_scale(p_input->p_video_sws_ctx, (const uint8_t *const *)p_input->p_frame->data, p_input->p_frame->linesize, 0, p_input->p_video_code_ctx->height,
+
+        sws_scale(p_input->p_video_sws_ctx, (const uint8_t *const *)p_frame->data, p_frame->linesize, 0, p_input->p_video_code_ctx->height,
                   p_input->po_frame->data, p_input->po_frame->linesize);
         int row = static_cast<int>(i / step);
         int column = static_cast<int>(i % step);
-        for(int j = 0; j < step_height; ++j){
-            memcpy(po_gather->po_frame->data[0] + row * step_height  * step_width * step + column * step_width + j * step_width * step, p_input->po_frame->data[0] + j * step_width, step_width);
+        for (int j = 0; j < step_height; ++j)
+        {
+            memcpy(po_gather->po_frame->data[0] + row * step_height * step_width * step + column * step_width + j * step_width * step, p_input->po_frame->data[0] + j * step_width, step_width);
         }
-        for(int j = 0; j < step_height / 2; ++j){
-            memcpy(po_gather->po_frame->data[1] + row * step_height * step_width * step/4 + column * step_width/2 + j * step_width * step / 2, p_input->po_frame->data[1] + j * step_width/2, step_width/2);
-            memcpy(po_gather->po_frame->data[2] + row * step_height * step_width * step/4 + column * step_width/2 + j * step_width * step / 2, p_input->po_frame->data[2] + j * step_width/2, step_width/2);
+        for (int j = 0; j < step_height / 2; ++j)
+        {
+            memcpy(po_gather->po_frame->data[1] + row * step_height * step_width * step / 4 + column * step_width / 2 + j * step_width * step / 2, p_input->po_frame->data[1] + j * step_width / 2, step_width / 2);
+            memcpy(po_gather->po_frame->data[2] + row * step_height * step_width * step / 4 + column * step_width / 2 + j * step_width * step / 2, p_input->po_frame->data[2] + j * step_width / 2, step_width / 2);
         }
-        po_gather->po_frame->pts = std::max(po_gather->po_frame->pts, p_input->p_frame->pts);
-        
+        po_gather->po_frame->pts = std::max(po_gather->po_frame->pts, p_frame->pts);
+
         //av_frame_free(&p_input->p_frame);
         //p_input->p_frame = nullptr;
+        if (nullptr != p_input->p_frame)
+        {
+            if (nullptr != p_input->p_frame_last)
+            {
+                av_frame_free(&p_input->p_frame_last);
+            }
+            p_input->p_frame_last = p_input->p_frame;
+            p_input->p_frame = nullptr;
+        }
     }
-    if(m_video_pts_last >= po_gather->po_frame->pts){
-        return ES_SUCCESS;
+
+    static int c = 0, s = 0;
+    ++c;
+    auto p_frame = (nullptr != p_info->inputs[0]->p_frame ? p_info->inputs[0]->p_frame : p_info->inputs[0]->p_frame_last);
+    //LOG_DEBUG(c<<" - "<<s<<" -> "<<p_frame->pict_type);
+    if (m_video_pts_last >= po_gather->po_frame->pts)
+    {
+        po_gather->po_frame->pts++;
+        //return ES_SUCCESS;
     }
     m_video_pts_last = po_gather->po_frame->pts;
 
@@ -483,14 +535,19 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
     while (ES_SUCCESS == ret)
     {
         ret = avcodec_receive_packet(po_gather->p_video_code_ctx, &packet);
-        if (0 == ret){
-
-        }else if(AVERROR(EAGAIN) == ret){
+        if (0 == ret)
+        {
+        }
+        else if (AVERROR(EAGAIN) == ret)
+        {
             break;
-        }else if(0 > ret)
+        }
+        else if (0 > ret)
         {
             return ES_UNKNOW;
         }
+        //++s;
+        //LOG_DEBUG(c<<" - "<<++s<<" -> "<<(nullptr != p_info->inputs[0]->p_frame ? p_info->inputs[0]->p_frame : p_info->inputs[0]->p_frame_last)->pict_type);
         packet.stream_index = po_gather->p_video_stream->index;
         av_packet_rescale_ts(&packet, po_gather->p_video_code_ctx->time_base, po_gather->p_video_stream->time_base);
         ret = output(&packet, po_gather);
@@ -502,6 +559,14 @@ int control_complex::encode_video(info_control_complex_ptr p_info)
 }
 int control_complex::encode_audio(info_control_complex_ptr &p_info)
 {
+    int ret = ES_SUCCESS;
+    if (0 < p_info->inputs.size() && 0 < p_info->outputs.size())
+    {
+        auto p_input = p_info->inputs[0];
+        auto p_output = p_info->outputs[0];
+        p_input->p_packet->stream_index = p_output->p_audio_stream->index;
+        ret = output(p_input->p_packet, p_output);
+    }
     return ES_SUCCESS;
 }
 
